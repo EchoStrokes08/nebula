@@ -38,6 +38,32 @@ funcionar sin servidor. Para revisar solo la interfaz durante el desarrollo pued
 | Escritorio (compila el build web y abre Electron) | `npm run desktop` |
 | AppImage de Linux | `npm run dist:linux` → `release/` |
 | Instalador de Windows (NSIS) | `npm run dist:win` (ejecutar en Windows o en CI) |
+| APK de Android independiente | `npm run apk` → `release/nebula.apk` |
+
+## Generar el APK de Android
+
+Requisitos: JDK 17+ y el Android SDK. El script usa `~/Android/jdk` y `~/Android/Sdk` salvo que
+definas `JAVA_HOME` y `ANDROID_HOME`. Las variables `EXPO_PUBLIC_*` de `.env` se incrustan en el
+APK, así que rellena `.env` antes.
+
+```bash
+npm install
+npm run apk                          # prebuild + gradle assembleRelease → release/nebula.apk
+adb install -r release/nebula.apk    # instalar en un móvil conectado por USB
+```
+
+Paso a paso (lo que hace `npm run apk`):
+
+```bash
+npx expo prebuild --platform android --no-install
+cd android && ./gradlew assembleRelease
+# resultado: android/app/build/outputs/apk/release/app-release.apk
+```
+
+Este APK lleva el código empaquetado (no necesita Metro ni el PC). Está firmado con la clave de
+depuración: sirve para instalarlo directamente, no para Google Play. Para publicar, configura un
+keystore propio en `android/app/build.gradle` o usa `eas build -p android`. Si ya tenías instalada
+una versión firmada con otra clave, desinstálala antes (`adb uninstall app.nebula.productividad`).
 
 ## Calidad
 

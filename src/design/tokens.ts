@@ -30,6 +30,10 @@ export const colors = {
   surfaceDisabled: '#1A1428',
   overlay: 'rgba(6, 4, 12, 0.72)',
   glass: 'rgba(37, 27, 57, 0.62)',
+  // Tarjetas translúcidas: dejan intuir la galaxia sin comprometer el contraste del texto.
+  card: 'rgba(24, 18, 42, 0.80)',
+  cardRaised: 'rgba(40, 30, 64, 0.86)',
+  cardHighlight: 'rgba(199, 169, 255, 0.28)',
 
   border: 'rgba(199, 169, 255, 0.10)',
   borderStrong: 'rgba(199, 169, 255, 0.22)',
@@ -154,6 +158,10 @@ export const gradients = {
   accent: [palette.violet500, palette.violet400] as const,
   ambient: ['rgba(128, 85, 232, 0.22)', 'rgba(128, 85, 232, 0)'] as const,
   space: [palette.space950, palette.space900, palette.space950] as const,
+  card: ['rgba(46, 34, 76, 0.82)', 'rgba(20, 15, 36, 0.86)'] as const,
+  cardRaised: ['rgba(64, 46, 104, 0.88)', 'rgba(30, 22, 52, 0.9)'] as const,
+  hero: ['rgba(128, 85, 232, 0.55)', 'rgba(192, 79, 168, 0.32)', 'rgba(24, 18, 42, 0.85)'] as const,
+  aurora: [palette.violet400, '#E58FD0', palette.cyan400] as const,
 };
 
 export const motion = {

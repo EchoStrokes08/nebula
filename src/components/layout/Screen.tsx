@@ -1,16 +1,19 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { navLayoutFor } from '@/components/navigation/sections';
 import { Text } from '@/components/primitives/Text';
-import { colors, spacing } from '@/design/tokens';
+import { colors, gradients, radius, spacing } from '@/design/tokens';
 
 export interface ScreenProps {
   title: string;
   overline?: string;
+  /** Frase corta bajo el título que da contexto a la pantalla. */
+  subtitle?: string;
   trailing?: ReactNode;
   children?: ReactNode;
   /** Enlace de vuelta sobre el título (pantallas secundarias). */
@@ -20,7 +23,7 @@ export interface ScreenProps {
 }
 
 /** Contenedor de pantalla: cabecera, desplazamiento y ancho máximo legible en escritorio. */
-export function Screen({ title, overline, trailing, children, back, wide }: ScreenProps) {
+export function Screen({ title, overline, subtitle, trailing, children, back, wide }: ScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const desktop = navLayoutFor(width) === 'sidebar';
@@ -51,13 +54,18 @@ export function Screen({ title, overline, trailing, children, back, wide }: Scre
       <View style={styles.header}>
         <View style={styles.titleBox}>
           {overline ? (
-            <Text variant="overline" tone="accent">
-              {overline.toUpperCase()}
-            </Text>
+            <View style={styles.pill}>
+              <Sparkles size={12} color={colors.accentSoft} />
+              <Text variant="overline" tone="accent">
+                {overline.toUpperCase()}
+              </Text>
+            </View>
           ) : null}
-          <Text variant={desktop ? 'display' : 'title1'} accessibilityRole="header">
+          <Text variant={desktop ? 'display' : 'title1'} accessibilityRole="header" style={desktop ? styles.titleDesktop : styles.title}>
             {title}
           </Text>
+          <LinearGradient colors={gradients.aurora} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.bar} />
+          {subtitle ? <Text variant="callout" tone="secondary" style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {trailing}
       </View>
@@ -74,6 +82,11 @@ const styles = StyleSheet.create({
   wideContent: { maxWidth: 1480 },
   // En pantallas estrechas las acciones bajan de línea antes que partir el título.
   header: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing[3] },
-  titleBox: { flexGrow: 1, flexShrink: 0, maxWidth: '100%' },
+  titleBox: { flexGrow: 1, flexShrink: 0, maxWidth: '100%', gap: spacing[2] },
+  pill: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], alignSelf: 'flex-start', paddingHorizontal: spacing[3], paddingVertical: spacing[1], borderRadius: radius.pill, backgroundColor: 'rgba(128, 85, 232, 0.2)', borderWidth: 1, borderColor: 'rgba(169, 135, 255, 0.35)' },
+  title: { fontSize: 30, lineHeight: 36, textShadowColor: 'rgba(169, 135, 255, 0.55)', textShadowRadius: 18 },
+  titleDesktop: { fontSize: 40, lineHeight: 46, textShadowColor: 'rgba(169, 135, 255, 0.55)', textShadowRadius: 22 },
+  bar: { width: 56, height: 4, borderRadius: radius.pill },
+  subtitle: { maxWidth: 520 },
   back: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start', marginBottom: -spacing[3] },
 });

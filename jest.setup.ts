@@ -16,6 +16,7 @@ jest.mock('react-native-reanimated', () => {
     withSequence: (...v: unknown[]) => v[v.length - 1],
     withRepeat: (v: unknown) => v,
     cancelAnimation: () => {},
+    useReducedMotion: () => true,
     FadeIn: builder(),
     FadeInDown: builder(),
     LinearTransition: builder(),

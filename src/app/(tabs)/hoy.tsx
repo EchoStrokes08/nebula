@@ -1,5 +1,8 @@
 import { router } from 'expo-router';
-import { Plus, Sun } from 'lucide-react-native';
+import { CheckSquare, Flame, KeyRound, Plus, Sun } from 'lucide-react-native';
+import { HeroCard } from '@/components/layout/HeroCard';
+import { SectionHeader } from '@/components/layout/SectionHeader';
+import { ProgressRing } from '@/components/progress/ProgressRing';
 import { StyleSheet, View } from 'react-native';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
 import { MotivationLine } from '@/features/motivation/MotivationLine';
@@ -42,9 +45,25 @@ export default function HoyScreen() {
   return (
     <Screen
       title="Hoy"
+      subtitle="Lo importante de tu día, de un vistazo."
       overline={dayLabel(today)}
       trailing={<Button label="Hábito" variant="secondary" icon={<Plus size={18} color={colors.text} />} onPress={() => router.push('/habito/nuevo')} />}
     >
+      {forToday.length || todayTasks.length ? (
+        <HeroCard
+          eyebrow="Tu órbita de hoy"
+          headline={pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : `Te quedan ${pending.length} hábitos`}
+          visual={
+            <ProgressRing progress={forToday.length ? done / forToday.length : 0} size={72} stroke={7} label={`${done} de ${forToday.length} hábitos`}>
+              <Text variant="title3" tabular>{forToday.length ? Math.round((done / forToday.length) * 100) : 0}%</Text>
+            </ProgressRing>
+          }
+          stats={[
+            { label: 'Hábitos hechos', value: `${done}/${forToday.length}` },
+            { label: 'Tareas para hoy', value: String(todayTasks.length) },
+          ]}
+        />
+      ) : null}
       <MotivationLine moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       <NotificationPrompt />
       <Button label="Capturar una idea" variant="secondary" onPress={() => router.push('/captura')} />
@@ -61,10 +80,7 @@ export default function HoyScreen() {
 
       {todayTasks.length ? (
         <View style={styles.section}>
-          <View style={styles.sectionHead}>
-            <Text variant="title3">Tareas</Text>
-            <Text variant="callout" tone="secondary" tabular>{todayTasks.length} para hoy</Text>
-          </View>
+          <SectionHeader icon={CheckSquare} title="Tareas" meta={`${todayTasks.length} para hoy`} color={colors.info} />
           {todayTasks.map((t) => (
             <TaskRow key={t.id} task={t} today={today} blocked={dag.blocked.has(t.id)} />
           ))}
@@ -73,7 +89,7 @@ export default function HoyScreen() {
 
       {keyTask ? (
         <View style={styles.keyTask} accessibilityRole="summary">
-          <Text variant="overline" tone="accent">LO QUE MÁS DESBLOQUEA</Text>
+          <SectionHeader icon={KeyRound} title="Lo que más desbloquea" color={colors.success} />
           <Text variant="bodyStrong">{keyTask.title}</Text>
           <Text variant="callout" tone="secondary">Terminarla libera {key!.n} {key!.n === 1 ? 'tarea' : 'tareas'} que dependen de ella.</Text>
         </View>
@@ -92,12 +108,7 @@ export default function HoyScreen() {
         />
       ) : (
         <View style={styles.section}>
-          <View style={styles.sectionHead}>
-            <Text variant="title3">Hábitos</Text>
-            <Text variant="callout" tone="secondary" tabular>
-              {done} de {forToday.length}
-            </Text>
-          </View>
+          <SectionHeader icon={Flame} title="Hábitos" meta={`${done} de ${forToday.length}`} color={colors.warning} />
           <HabitList items={[...pending, ...forToday.filter((s) => s.current.status === 'met')]} today={today} />
         </View>
       )}
@@ -107,7 +118,6 @@ export default function HoyScreen() {
 
 const styles = StyleSheet.create({
   section: { gap: spacing[3] },
-  sectionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  keyTask: { gap: spacing[1], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong },
-  recovery: { gap: spacing[2], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.accentMuted, borderWidth: 1, borderColor: colors.accent },
+  keyTask: { gap: spacing[2], padding: spacing[5], borderRadius: radius.xl, backgroundColor: colors.card, borderWidth: 1, borderColor: 'rgba(111, 214, 160, 0.35)' },
+  recovery: { gap: spacing[2], padding: spacing[5], borderRadius: radius.xl, backgroundColor: 'rgba(128, 85, 232, 0.24)', borderWidth: 1, borderColor: colors.accent },
 });

@@ -18,5 +18,5 @@ export function StatTile({ label, value, delta, deltaLabel }: { label: string; v
 }
 
 const styles = StyleSheet.create({
-  tile: { flexGrow: 1, flexBasis: 150, gap: 2, padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  tile: { flexGrow: 1, flexBasis: 150, gap: 2, padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderTopColor: colors.cardHighlight, borderLeftWidth: 3, borderLeftColor: colors.accentBright },
 });
