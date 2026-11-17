@@ -1,0 +1,27 @@
+<!-- Marca de Nebula: destello violeta con órbita inclinada. Original; fuente de todos los iconos. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.3" stop-color="#E4D6FF"/>
+      <stop offset="0.7" stop-color="#A987FF"/>
+      <stop offset="1" stop-color="#8055E8"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#A987FF" stop-opacity="0.6"/>
+      <stop offset="1" stop-color="#8055E8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#C7A9FF" stop-opacity="0.35"/>
+      <stop offset="0.55" stop-color="#C7A9FF"/>
+      <stop offset="1" stop-color="#7CD4E8"/>
+    </linearGradient>
+  </defs>
+  <g id="mark">
+    <circle cx="512" cy="512" r="290" fill="url(#halo)"/>
+    <ellipse cx="512" cy="512" rx="330" ry="118" transform="rotate(-20 512 512)" fill="none" stroke="url(#ring)" stroke-width="22"/>
+    <path d="M512 262 C 532 452 572 492 762 512 C 572 532 532 572 512 762 C 492 572 452 532 262 512 C 452 492 492 452 512 262 Z" fill="url(#core)"/>
+    <circle cx="512" cy="512" r="46" fill="#FFFFFF"/>
+    <circle cx="806" cy="404" r="26" fill="#F7F4FF"/>
+  </g>
+</svg>

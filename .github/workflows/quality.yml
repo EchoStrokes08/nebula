@@ -1,0 +1,56 @@
+name: Calidad
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build:web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nebula-web
+          path: dist
+  e2e:
+    # Auditoría de accesibilidad, teclado y capturas sobre el build web (vista previa sin servidor).
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:build
+      - run: npm run e2e
+        env:
+          E2E_EMAIL_A: ${{ secrets.E2E_EMAIL_A }}
+          E2E_PASSWORD_A: ${{ secrets.E2E_PASSWORD_A }}
+          E2E_EMAIL_B: ${{ secrets.E2E_EMAIL_B }}
+          E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-trazas
+          path: test-results
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno check --config supabase/functions/deno.json supabase/functions/ai-assist/index.ts supabase/functions/account-delete/index.ts

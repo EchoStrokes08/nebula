@@ -1,0 +1,9 @@
+project_id = "nebula"
+
+[functions.ai-assist]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
+[functions.account-delete]
+verify_jwt = false
+import_map = "./functions/deno.json"

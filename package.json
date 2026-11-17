@@ -1,0 +1,144 @@
+{
+  "name": "nebula",
+  "version": "1.0.0",
+  "main": "expo-router/entry",
+  "dependencies": {
+    "@date-fns/tz": "^1.5.0",
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/netinfo": "12.0.1",
+    "@supabase/supabase-js": "^2.119.0",
+    "@tanstack/react-query": "^5.107.1",
+    "date-fns": "^4.4.0",
+    "expo": "~58.0.25",
+    "expo-calendar": "~58.0.7",
+    "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
+    "expo-file-system": "~58.0.13",
+    "expo-font": "~58.0.12",
+    "expo-haptics": "~58.0.8",
+    "expo-image-picker": "~58.0.10",
+    "expo-keep-awake": "~58.0.4",
+    "expo-linear-gradient": "~58.0.4",
+    "expo-linking": "~58.0.17",
+    "expo-localization": "~58.0.5",
+    "expo-notifications": "~58.1.9",
+    "expo-quick-actions": "^6.0.2",
+    "expo-router": "~58.0.31",
+    "expo-secure-store": "~58.0.3",
+    "expo-sharing": "~58.0.23",
+    "expo-speech-recognition": "^58.0.1",
+    "expo-splash-screen": "~58.0.14",
+    "expo-status-bar": "~58.0.5",
+    "expo-web-browser": "~58.0.8",
+    "lucide-react-native": "^1.73.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-reanimated": "4.7.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-svg": "15.16.0",
+    "react-native-url-polyfill": "^4.0.0",
+    "react-native-web": "^0.21.4",
+    "react-native-worklets": "0.13.0",
+    "zod": "^4.6.7",
+    "zustand": "^5.1.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@electric-sql/pglite": "^0.5.16",
+    "@playwright/test": "^1.65.1",
+    "@testing-library/react-native": "^14.1.0",
+    "@types/jest": "30.0.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "~19.3.0",
+    "cross-env": "^10.1.0",
+    "electron": "^45.3.3",
+    "electron-builder": "^26.18.0",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~58.0.4",
+    "jest": "~30.5.2",
+    "jest-expo": "~58.0.14",
+    "supabase": "^3.2.0",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "jest --selectProjects app",
+    "test:db": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --selectProjects db",
+    "test:all": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "check": "npm run typecheck && npm run lint && npm run test:all && npm run test:desktop",
+    "build:web": "expo export --platform web --output-dir dist",
+    "desktop": "npm run build:web && electron desktop/main.cjs",
+    "desktop:shots": "cross-env NEBULA_SCREENSHOT=docs/screenshots electron --ozone-platform=headless desktop/main.cjs",
+    "dist:linux": "npm run build:desktop && electron-builder --linux AppImage --config.electronDist=node_modules/electron/dist --publish never",
+    "dist:win": "npm run build:desktop && electron-builder --win nsis --config.electronDist=node_modules/electron/dist --publish never",
+    "dist:linux:deb": "npm run build:desktop && electron-builder --linux deb --config.electronDist=node_modules/electron/dist --publish never",
+    "db:push": "bash scripts/db-push.sh",
+    "configure:groq": "python3 scripts/configure-groq.py",
+    "deploy:backend": "bash scripts/deploy-backend.sh",
+    "test:desktop": "node --test desktop/*.test.cjs",
+    "build:desktop": "npm run build:web && node scripts/scan-bundle.cjs dist && node scripts/prepare-desktop.cjs",
+    "e2e:build": "npm run build:web && cross-env EXPO_PUBLIC_SUPABASE_URL= EXPO_PUBLIC_SUPABASE_ANON_KEY= EXPO_PUBLIC_DEV_PREVIEW_UI=1 expo export --platform web --output-dir .e2e/preview",
+    "e2e": "node --env-file-if-exists=.env node_modules/.bin/playwright test",
+    "e2e:shots": "cross-env SHOTS_DIR=docs/screenshots node --env-file-if-exists=.env node_modules/.bin/playwright test e2e/visual.spec.ts e2e/auth.spec.ts"
+  },
+  "private": true,
+  "description": "Nebula — productividad personal, inteligente y social",
+  "author": "Nebula",
+  "build": {
+    "appId": "app.nebula.productividad",
+    "productName": "Nebula",
+    "directories": {
+      "output": "release",
+      "app": ".desktop-app"
+    },
+    "files": [
+      "desktop/**/*.cjs",
+      "!desktop/**/*.test.cjs",
+      "dist/**/*",
+      "package.json",
+      "assets/icon.png",
+      "!node_modules/**/*"
+    ],
+    "extraMetadata": {
+      "main": "desktop/main.cjs"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Office",
+      "icon": "assets/icon.png",
+      "mimeTypes": [
+        "x-scheme-handler/nebula"
+      ],
+      "syncDesktopName": true
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "protocols": [
+      {
+        "name": "Nebula",
+        "schemes": [
+          "nebula"
+        ]
+      }
+    ]
+  },
+  "desktopName": "nebula.desktop"
+}

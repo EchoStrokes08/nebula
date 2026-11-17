@@ -1,0 +1,83 @@
+{
+  "expo": {
+    "name": "Nebula",
+    "slug": "nebula",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0815",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "app.nebula.productividad"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "backgroundColor": "#0B0815"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-secure-store",
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0B0815",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      "expo-web-browser",
+      "expo-sharing",
+      "expo-quick-actions",
+      [
+        "expo-notifications",
+        {
+          "color": "#8055E8",
+          "defaultChannel": "recordatorios"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Nebula usa tus fotos solo para que elijas tu imagen de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Nebula lee tu calendario para no planificar actividades encima de tus compromisos."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Nebula usa el micrófono solo mientras dictas una tarea, hábito o meta.",
+          "speechRecognitionPermission": "Nebula convierte tu voz en texto para crear actividades. Siempre podrás revisar el resultado antes de guardar.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ]
+    ],
+    "scheme": "nebula",
+    "backgroundColor": "#0B0815",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "platforms": [
+      "android",
+      "web"
+    ]
+  }
+}
