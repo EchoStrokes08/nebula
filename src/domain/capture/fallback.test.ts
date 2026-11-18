@@ -1,4 +1,4 @@
-import { createProvider, resetModelHealth } from '../../../supabase/functions/ai-assist/provider';
+import { createProvider, ProviderUnavailable, resetModelHealth } from '../../../supabase/functions/ai-assist/provider';
 
 const ok = (message: string) => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({ choices: [{ message: { content: JSON.stringify({ message, actions: [] }) } }] }) });
 const fail = (status: number, retry?: string) => ({ ok: false, status, headers: new Headers(retry ? { 'retry-after': retry } : {}), body: null });
@@ -84,5 +84,25 @@ describe('streaming con Google', () => {
     await expect(createProvider(googleEnv, send as unknown as typeof fetch)!.respond('hola', {})).resolves.toMatchObject({ message: 'rapido' });
     expect(Date.now() - started).toBeLessThan(2000);
     expect(JSON.parse(send.mock.calls[1]![1].body).stream).toBeUndefined();
+  });
+});
+
+describe('motivo cuando fallan todos los modelos', () => {
+  const reason = async (statuses: number[]) => {
+    const send = jest.fn();
+    for (const s of statuses) send.mockResolvedValueOnce(fail(s));
+    return createProvider(env(), send)!.respond('x', {}).then(() => null, (e: unknown) => e);
+  };
+
+  it('saturación si alguno estaba saturado o con límite', async () => {
+    const e = await reason([503, 401, 429]);
+    expect(e).toBeInstanceOf(ProviderUnavailable);
+    expect((e as ProviderUnavailable).busy).toBe(true);
+  });
+
+  it('configuración rota si todos rechazan la petición (clave o modelo inválidos)', async () => {
+    const e = await reason([401, 404, 400]);
+    expect(e).toBeInstanceOf(ProviderUnavailable);
+    expect((e as ProviderUnavailable).busy).toBe(false);
   });
 });

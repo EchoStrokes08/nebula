@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import { authenticate, body, headers, json } from '../_shared/http.ts';
-import { createProvider } from './provider.ts';
+import { createProvider, ProviderUnavailable } from './provider.ts';
 import { verifyPlanLinks } from './links.ts';
 import { toLegacyResponse } from '../../../src/domain/capture/legacy.ts';
 import { busyFromTasks, schedulePlan, type SchedulePlan } from '../../../src/domain/capture/schedule.ts';
@@ -28,19 +28,22 @@ Deno.serve(async (req) => {
   try {
     const { client, user } = await authenticate(req);
     const parsed = requestSchema.safeParse(await body(req));
-    if (!parsed.success) return json({ error: 'invalid request' }, 400);
+    if (!parsed.success) return json({ error: 'invalid request', code: 'invalid_request' }, 400);
     const provider = createProvider((k) => Deno.env.get(k));
-    if (!provider) return json({ error: 'provider not configured', fallback: 'captura' }, 503);
+    if (!provider) return json({ error: 'provider not configured', code: 'not_configured', fallback: 'captura' }, 503);
     const { data, error } = await client.rpc('consume_ai_request');
-    if (error) return json({ error: 'AI disabled or unavailable' }, 403);
-    if (!data) return json({ error: 'daily limit reached' }, 429);
+    if (error) return json({ error: 'AI disabled or unavailable', code: 'ai_disabled' }, 403);
+    if (!data) return json({ error: 'daily limit reached', code: 'daily_limit' }, 429);
     let result: { actions: { type: string }[] };
     try {
       result = await provider.respond(parsed.data.message, parsed.data.context, parsed.data.history ?? []) as { actions: { type: string }[] };
-    } catch {
+    } catch (e) {
       // Todos los modelos fallaron: la consulta no cuenta para el límite diario.
       await refundRequest(user.id);
-      return json({ error: 'all models busy', fallback: 'captura' }, 503);
+      const busy = !(e instanceof ProviderUnavailable) || e.busy;
+      return json(busy
+        ? { error: 'all models busy', code: 'models_busy', fallback: 'captura' }
+        : { error: 'all models rejected the request', code: 'models_error', fallback: 'captura' }, 503);
     }
     // Los enlaces de estudio se comprueban aquí: el cliente solo ve los que responden.
     await verifyPlanLinks(result);
@@ -53,6 +56,8 @@ Deno.serve(async (req) => {
     }
     return json(parsed.data.client ? result : toLegacyResponse(result as { message: string; actions: { type: string }[] }));
   } catch (e) {
-    return json({ error: e instanceof Error && e.message === 'unauthorized' ? 'unauthorized' : 'assistant unavailable', fallback: 'captura' }, e instanceof Error && e.message === 'unauthorized' ? 401 : 503);
+    if (e instanceof Error && e.message === 'unauthorized') return json({ error: 'unauthorized', code: 'unauthorized' }, 401);
+    console.log(JSON.stringify({ ai: 'internal', reason: e instanceof Error ? e.message : String(e) }));
+    return json({ error: 'assistant unavailable', code: 'internal', fallback: 'captura' }, 500);
   }
 });

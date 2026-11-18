@@ -30,6 +30,7 @@ import { appVersion } from '@/features/system/update';
 import { getDesktopBridge } from '@/platform/desktopBridge';
 import { useUpdatePreferences } from '@/features/profile/usePreferences';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { assistantErrorMessage, readAssistantFailure } from '@/domain/assistant/errors';
 
 type Response = ReturnType<typeof assistanceSchema.parse>;
 interface Turn { request: string; response: Response }
@@ -123,14 +124,7 @@ export default function Asistente() {
         const legacy = { from: context.week.from, to: context.week.to, tasksCompleted: context.week.tasksCompleted, habitRecords: context.week.habitRecords, activeDays: context.week.activeDays };
         r = await db().functions.invoke('ai-assist', { body: { message: text, context: legacy } });
       }
-      if (r.error) {
-        const status = (r.error as { context?: { status?: number } }).context?.status;
-        throw new Error(status === 429
-          ? 'Has usado las 20 consultas de hoy al asistente. Mañana se renuevan; mientras tanto puedes usar la captura rápida.'
-          : status === 503
-            ? 'Todos los modelos de IA están saturados ahora mismo. No se ha gastado ninguna consulta; reintenta en un par de minutos.'
-            : 'El asistente no está disponible ahora mismo. Reintenta en un momento o usa la captura rápida.');
-      }
+      if (r.error) throw new Error(assistantErrorMessage(await readAssistantFailure(r.error)));
       const response = assistanceSchema.parse(r.data);
       setConversation((c) => [...c, { request: text, response }]);
       setRequest('');

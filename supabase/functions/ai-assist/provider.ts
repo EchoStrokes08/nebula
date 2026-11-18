@@ -148,6 +148,15 @@ function single(spec: ModelSpec, timeoutMs: number, connectMs: number, maxTokens
 }
 
 /**
+ * Todos los modelos fallaron. `busy`: al menos uno estaba saturado, con límite o tardó demasiado
+ * (pasajero); si no, todos dieron errores permanentes (clave o modelo mal configurados).
+ */
+export class ProviderUnavailable extends Error {
+  readonly busy: boolean;
+  constructor(busy: boolean) { super('provider unavailable'); this.busy = busy; }
+}
+
+/**
  * Estado de salud de cada modelo, compartido entre peticiones mientras la función siga caliente.
  * Un modelo saturado se salta durante su `Retry-After` (o 60 s; más si falla seguido) en vez de
  * hacer esperar a cada persona. Las salidas inválidas no lo castigan (descanso 0).
@@ -197,12 +206,14 @@ export function createProvider(env: (key: string) => string | undefined, send: t
   const chain = specs.map((spec) => ({ spec, timeoutMs }));
   return { async respond(message, context, history = []) {
     const start = now();
+    let busy = false; let attempts = 0;
     const ready = chain.filter((c) => (health.get(c.spec.id)?.until ?? 0) <= start);
     // Todos descansando: se prueban igualmente, empezando por el que antes se recupere.
     const order = ready.length ? [...ready, ...chain.filter((c) => !ready.includes(c))] : [...chain].sort((a, b) => (health.get(a.spec.id)?.until ?? 0) - (health.get(b.spec.id)?.until ?? 0));
     for (const c of order) {
       const left = deadlineMs - (now() - start);
       if (left < MIN_ATTEMPT_MS) break;
+      attempts += 1;
       try {
         const result = await single(c.spec, Math.min(c.timeoutMs, left - 2000), connectMs, maxTokens, send).respond(message, context, history);
         health.delete(c.spec.id);
@@ -210,9 +221,10 @@ export function createProvider(env: (key: string) => string | undefined, send: t
         return result;
       } catch (e) {
         console.log(JSON.stringify({ ai: 'fail', model: c.spec.id, reason: e instanceof Error ? e.message : String(e) }));
-        if (!(e instanceof ModelError) || e.transient) markFailure(c.spec.id, e, now());
+        if (!(e instanceof ModelError) || e.transient) { busy = true; markFailure(c.spec.id, e, now()); }
       }
     }
-    throw new Error('provider unavailable');
+    // Sin tiempo para intentar ninguno también cuenta como saturación.
+    throw new ProviderUnavailable(busy || attempts === 0);
   } };
 }
