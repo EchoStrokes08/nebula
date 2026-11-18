@@ -1,5 +1,5 @@
 // Actualizaciones de escritorio sin servidor propio: la web publica `version.json` con la última
-// versión y la release de GitHub guarda el AppImage. Solo se descargan URLs de este repositorio.
+// versión y la release de GitHub guarda el AppImage y el paquete de Windows. Solo se descargan URLs de este repositorio.
 const UPDATE_INFO_URL = 'https://echostrokes08.github.io/nebula/version.json';
 const RELEASES_URL = 'https://github.com/EchoStrokes08/nebula/releases/latest';
 const DOWNLOAD_PREFIXES = ['https://github.com/EchoStrokes08/nebula/releases/', 'https://echostrokes08.github.io/nebula/'];
@@ -15,9 +15,14 @@ function isNewer(latest, current) {
 /** Valida `version.json`; devuelve null si no tiene la forma esperada. */
 function parseUpdateInfo(data) {
   if (!data || typeof data !== 'object') return null;
-  const { version, notes, linux } = data;
+  const { version, notes, linux, windows } = data;
   if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version)) return null;
-  return { version, notes: typeof notes === 'string' ? notes.slice(0, 500) : '', linux: isAllowedDownload(linux) ? linux : null };
+  return {
+    version,
+    notes: typeof notes === 'string' ? notes.slice(0, 500) : '',
+    linux: isAllowedDownload(linux) ? linux : null,
+    windows: isAllowedDownload(windows) ? windows : null,
+  };
 }
 
 function isAllowedDownload(url) {

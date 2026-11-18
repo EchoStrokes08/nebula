@@ -5,9 +5,9 @@ import { Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
 import { getDesktopBridge } from '@/platform/desktopBridge';
-import { apkUrl, linuxAppImageUrl } from '@/lib/webBase';
+import { apkUrl, linuxAppImageUrl, windowsInstallerUrl } from '@/lib/webBase';
 
-/** Solo en la versión web del navegador: enlaces para instalar la app de Android y la de Linux. */
+/** Solo en la versión web del navegador: enlaces para instalar la app de Android, Windows y Linux. */
 export function DownloadApps({ compact }: { compact?: boolean }) {
   if (Platform.OS !== 'web' || getDesktopBridge()) return null;
   return (
@@ -18,6 +18,13 @@ export function DownloadApps({ compact }: { compact?: boolean }) {
         title="Descargar para Android"
         label="Descargar la app para Android"
         hint={compact ? null : 'APK gratuito · ábrelo en el móvil y permite instalar apps de origen desconocido'}
+      />
+      <DownloadLink
+        url={windowsInstallerUrl}
+        icon={Monitor}
+        title="Descargar para Windows"
+        label="Descargar la app para Windows"
+        hint={compact ? null : 'Instalador x64 · descarga la app al instalar; si Windows avisa, pulsa «Más información» › «Ejecutar de todas formas»'}
       />
       <DownloadLink
         url={linuxAppImageUrl}

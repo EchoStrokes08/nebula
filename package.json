@@ -80,7 +80,7 @@
     "desktop": "npm run build:web && electron desktop/main.cjs",
     "desktop:shots": "cross-env NEBULA_SCREENSHOT=docs/screenshots electron --ozone-platform=headless desktop/main.cjs",
     "dist:linux": "npm run build:desktop && electron-builder --linux AppImage --config.electronDist=node_modules/electron/dist --publish never",
-    "dist:win": "npm run build:desktop && electron-builder --win nsis --config.electronDist=node_modules/electron/dist --publish never",
+    "dist:win": "npm run build:desktop && bash scripts/build-windows.sh",
     "dist:linux:deb": "npm run build:desktop && electron-builder --linux deb --config.electronDist=node_modules/electron/dist --publish never",
     "install:linux": "bash scripts/install-linux.sh",
     "uninstall:linux": "bash scripts/install-linux.sh --desinstalar",
@@ -130,9 +130,13 @@
     },
     "win": {
       "target": [
-        "nsis"
+        "nsis-web"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "electronLanguages": [
+        "es",
+        "en-US"
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -145,7 +149,12 @@
           "nebula"
         ]
       }
-    ]
+    ],
+    "nsisWeb": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Nebula-Setup.${ext}"
+    }
   },
   "desktopName": "nebula.desktop"
 }

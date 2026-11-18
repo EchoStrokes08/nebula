@@ -38,7 +38,7 @@ funcionar sin servidor. Para revisar solo la interfaz durante el desarrollo pued
 | Escritorio (compila el build web y abre Electron) | `npm run desktop` |
 | AppImage de Linux | `npm run dist:linux` → `release/` |
 | Instalar en este Linux (menú de aplicaciones, icono, `nebula://`) | `npm run install:linux` · quitar: `npm run uninstall:linux` |
-| Instalador de Windows (NSIS) | `npm run dist:win` (ejecutar en Windows o en CI) |
+| Instalador web de Windows (x64, se compila desde Linux con wine) | `npm run dist:win` → `release/nsis-web/` (el `.7z` va a la release `v<versión>`) |
 | APK de Android independiente | `npm run apk` → `release/nebula.apk` |
 
 ## Generar el APK de Android

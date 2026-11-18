@@ -297,8 +297,8 @@ function applyGlobalShortcut(accelerator) {
 
 // ---- Actualizaciones ------------------------------------------------------------------------
 // El proceso principal consulta version.json (el renderer no puede: CSP) y, en Linux con
-// AppImage, descarga el nuevo, lo verifica, sustituye el actual y reinicia. En otro caso abre
-// la página de descargas. La URL de descarga nunca la decide el renderer.
+// AppImage, descarga el nuevo, lo verifica, sustituye el actual y reinicia. En Windows abre el
+// instalador nuevo y en otro caso la página de descargas. La URL de descarga nunca la decide el renderer.
 async function fetchUpdateInfo() {
   const r = await net.fetch(`${UPDATE_INFO_URL}?t=${Date.now()}`, { cache: 'no-store' });
   if (!r.ok) return null;
@@ -322,6 +322,8 @@ handle('update:install', async () => {
   const temp = target ? `${target}.download` : null;
   try {
     const info = await fetchUpdateInfo();
+    // Windows: se abre el instalador nuevo en el navegador; instala encima conservando los datos.
+    if (process.platform === 'win32' && info?.windows) { await shell.openExternal(info.windows); return { status: 'opened' }; }
     if (!info || !info.linux || !canSelfUpdate()) { await shell.openExternal(RELEASES_URL); return { status: 'opened' }; }
     const r = await net.fetch(info.linux, { redirect: 'follow' });
     if (!r.ok || !r.body) throw new Error(`descarga ${r.status}`);

@@ -12,7 +12,10 @@ test('compara versiones X.Y.Z numéricamente', () => {
 
 test('valida version.json y solo acepta descargas del repositorio', () => {
   const linux = 'https://github.com/EchoStrokes08/nebula/releases/latest/download/Nebula-linux-x86_64.AppImage';
-  assert.deepEqual(parseUpdateInfo({ version: '1.2.0', notes: 'Planes', linux }), { version: '1.2.0', notes: 'Planes', linux });
+  const windows = 'https://echostrokes08.github.io/nebula/Nebula-Setup.exe';
+  assert.deepEqual(parseUpdateInfo({ version: '1.2.0', notes: 'Planes', linux }), { version: '1.2.0', notes: 'Planes', linux, windows: null });
+  assert.equal(parseUpdateInfo({ version: '1.2.0', linux, windows }).windows, windows);
+  assert.equal(parseUpdateInfo({ version: '1.2.0', windows: 'https://evil.example.com/Setup.exe' }).windows, null);
   assert.equal(parseUpdateInfo({ version: 'latest' }), null);
   assert.equal(parseUpdateInfo(null), null);
   assert.equal(parseUpdateInfo({ version: '1.2.0', linux: 'https://evil.example.com/x.AppImage' }).linux, null);

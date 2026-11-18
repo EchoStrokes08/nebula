@@ -28,12 +28,14 @@ jobs:
       # El .deb exige un mantenedor con email (variable DEB_MAINTAINER, p. ej. «Nombre <correo>»).
       - if: runner.os == 'Linux' && vars.DEB_MAINTAINER != ''
         run: ./node_modules/.bin/electron-builder --linux deb --config.electronDist=node_modules/electron/dist --config.linux.maintainer="${{ vars.DEB_MAINTAINER }}" --publish never
+      # Instalador web: el .exe pequeño descarga el paquete de la release v<versión> (ver el script).
       - if: runner.os == 'Windows'
-        run: ./node_modules/.bin/electron-builder --win nsis --config.electronDist=node_modules/electron/dist --publish never
+        shell: bash
+        run: bash scripts/build-windows.sh
       - uses: actions/upload-artifact@v4
         with:
           name: nebula-${{ runner.os }}
           path: |
             release/*.AppImage
             release/*.deb
-            release/*.exe
+            release/nsis-web/*
