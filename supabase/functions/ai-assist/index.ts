@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticate, body, headers, json } from '../_shared/http.ts';
 import { createProvider } from './provider.ts';
 import { verifyPlanLinks } from './links.ts';
+import { toLegacyResponse } from '../../../src/domain/capture/legacy.ts';
 import { busyFromTasks, schedulePlan, type SchedulePlan } from '../../../src/domain/capture/schedule.ts';
 import { assistantContextSchema, historySchema } from '../../../src/domain/assistant/context.ts';
 
@@ -11,6 +12,8 @@ const requestSchema = z.object({
   // Clientes antiguos envían solo el resumen numérico; los nuevos, el contexto completo.
   context: z.union([assistantContextSchema, legacyContext]),
   history: historySchema.optional(),
+  /** Lo envían las apps 1.2.0+; sin él es una app antigua que necesita el formato anterior. */
+  client: z.object({ version: z.string().regex(/^\d+\.\d+\.\d+$/), platform: z.enum(['android', 'ios', 'web', 'desktop']) }).strict().optional(),
 }).strict();
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers });
@@ -34,7 +37,7 @@ Deno.serve(async (req) => {
         if (a.type === 'create_plan') schedulePlan(a as unknown as SchedulePlan, { today: ctx.now.day, activeDays: ctx.person.activeDays, busy: busyFromTasks(ctx.tasks) });
       }
     }
-    return json(result);
+    return json(parsed.data.client ? result : toLegacyResponse(result as { message: string; actions: { type: string }[] }));
   } catch (e) {
     return json({ error: e instanceof Error && e.message === 'unauthorized' ? 'unauthorized' : 'assistant unavailable', fallback: 'captura' }, e instanceof Error && e.message === 'unauthorized' ? 401 : 503);
   }

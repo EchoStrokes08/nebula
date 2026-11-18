@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('nebulaDesktop', {
   schedule: (n) => ipcRenderer.invoke('notify:schedule', n),
   cancel: (id) => ipcRenderer.invoke('notify:cancel', id),
   cancelPrefix: (prefix) => ipcRenderer.invoke('notify:cancelPrefix', prefix),
+  update: { check: () => ipcRenderer.invoke('update:check'), install: () => ipcRenderer.invoke('update:install') },
   oauth: {
     listen: () => ipcRenderer.invoke('oauth:listen'),
     open: (authUrl) => ipcRenderer.invoke('oauth:open', authUrl),

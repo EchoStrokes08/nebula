@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { BookOpen, CalendarDays, CheckSquare, ChevronDown, ChevronUp, Flag, Flame, GraduationCap, Lightbulb, Send, Sparkles, Swords, UserRound, Wand2 } from 'lucide-react-native';
 import { useRef, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { RichText } from '@/components/content/RichText';
@@ -26,6 +26,8 @@ import { setTarget } from '@/features/habits/api';
 import { useHabitMutation, useHabitsData } from '@/features/habits/hooks';
 import { useToday } from '@/features/habits/useToday';
 import { ActionCard } from '@/features/intelligence/ActionCard';
+import { appVersion } from '@/features/system/update';
+import { getDesktopBridge } from '@/platform/desktopBridge';
 import { useUpdatePreferences } from '@/features/profile/usePreferences';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 
@@ -115,7 +117,7 @@ export default function Asistente() {
         { role: 'user' as const, text: t.request.slice(0, 2000) },
         { role: 'assistant' as const, text: t.response.message.slice(0, 2000) },
       ]);
-      let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history } });
+      let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history, client: { version: appVersion(), platform: Platform.OS === 'web' && getDesktopBridge() ? 'desktop' : Platform.OS } } });
       // Servidor aún sin desplegar la versión con contexto completo: reintenta con el resumen antiguo.
       if (r.error && (r.error as { context?: { status?: number } }).context?.status === 400) {
         const legacy = { from: context.week.from, to: context.week.to, tasksCompleted: context.week.tasksCompleted, habitRecords: context.week.habitRecords, activeDays: context.week.activeDays };

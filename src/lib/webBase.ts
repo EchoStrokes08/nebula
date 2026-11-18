@@ -11,3 +11,8 @@ export const githubRepo = 'EchoStrokes08/nebula';
 
 /** AppImage de Linux de la última release: GitHub redirige `latest` a la versión más reciente. */
 export const linuxAppImageUrl = `https://github.com/${githubRepo}/releases/latest/download/Nebula-linux-x86_64.AppImage`;
+
+/** Web publicada (GitHub Pages): allí viven `version.json` y el APK de la última versión. */
+export const pagesUrl = 'https://echostrokes08.github.io/nebula';
+export const updateInfoUrl = `${pagesUrl}/version.json`;
+export const publishedApkUrl = `${pagesUrl}/nebula.apk`;

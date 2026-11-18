@@ -3,8 +3,8 @@
 #   npm run release -- 1.1.0 "Novedades de esta versión"
 # 1) sube version y android.versionCode en app.json   2) comprueba tipos, lint y tests
 # 3) compila el APK (arm64)   4) compila el AppImage de Linux (x86-64)
-# 5) publica la web + APK en GitHub Pages   6) commit + etiqueta en main
-# 7) crea la release de GitHub con el APK y el AppImage (la web enlaza a la última)
+# 5) commit + etiqueta en main   6) release de GitHub con el APK y el AppImage
+# 7) publica la web + APK + version.json en GitHub Pages (avisa a las apps instaladas)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -55,29 +55,13 @@ ls -lh release/Nebula-linux-x86_64.AppImage
 # Si Nebula está instalada en este equipo, se actualiza a la versión nueva.
 if [ -x "$HOME/.local/opt/nebula/Nebula.AppImage" ]; then bash scripts/install-linux.sh --sin-compilar; fi
 
-step "5/7 Web en GitHub Pages"
-rm -rf .pages-dist
-EXPO_BASE_URL=/nebula npx expo export --platform web --output-dir .pages-dist
-node scripts/scan-bundle.cjs .pages-dist
-cp release/nebula.apk .pages-dist/nebula.apk
-cp .pages-dist/index.html .pages-dist/404.html
-touch .pages-dist/.nojekyll
-(
-  cd .pages-dist
-  git init -q -b gh-pages
-  git add -A
-  git commit -q -m "Publicar Nebula $VERSION"
-  git push -q -f "git@github.com:$REPO.git" gh-pages
-  rm -rf .git
-)
-
-step "6/7 Commit y etiqueta"
+step "5/7 Commit y etiqueta"
 git add app.json
 git commit -q -m "Versión $VERSION" || true
 git tag -a "v$VERSION" -m "Nebula $VERSION"
 git push -q origin main "v$VERSION"
 
-step "7/7 Release de GitHub"
+step "6/7 Release de GitHub"
 if [ -z "$NOTES" ]; then
   PREV=$(git describe --tags --abbrev=0 "v$VERSION^" 2>/dev/null || true)
   NOTES=$(git log --pretty='- %s' ${PREV:+"$PREV"..}"v$VERSION^" | grep -v '^- Versión ' | head -30)
@@ -88,6 +72,30 @@ gh release create "v$VERSION" release/nebula.apk release/Nebula-linux-x86_64.App
   --notes "$NOTES
 
 Android: https://echostrokes08.github.io/nebula/nebula.apk · Linux: https://github.com/$REPO/releases/latest/download/Nebula-linux-x86_64.AppImage · Web: https://echostrokes08.github.io/nebula/"
+
+# La web va la última: su version.json avisa a las apps instaladas, y para entonces el
+# AppImage de la release ya tiene que estar subido.
+step "7/7 Web en GitHub Pages"
+rm -rf .pages-dist
+EXPO_BASE_URL=/nebula npx expo export --platform web --output-dir .pages-dist
+node scripts/scan-bundle.cjs .pages-dist
+cp release/nebula.apk .pages-dist/nebula.apk
+# Lo consulta el aviso «Hay una versión nueva» de Android y escritorio (1.2.0+).
+node -e '
+  const [version, notes] = process.argv.slice(1);
+  const info = { version, notes: notes.split("\n")[0].slice(0, 300), apk: "https://echostrokes08.github.io/nebula/nebula.apk", linux: "https://github.com/EchoStrokes08/nebula/releases/latest/download/Nebula-linux-x86_64.AppImage" };
+  require("fs").writeFileSync(".pages-dist/version.json", JSON.stringify(info, null, 2) + "\n");
+' "$VERSION" "$NOTES"
+cp .pages-dist/index.html .pages-dist/404.html
+touch .pages-dist/.nojekyll
+(
+  cd .pages-dist
+  git init -q -b gh-pages
+  git add -A
+  git commit -q -m "Publicar Nebula $VERSION"
+  git push -q -f "git@github.com:$REPO.git" gh-pages
+  rm -rf .git
+)
 
 printf '\n\033[1;32m✓ Nebula %s publicada\033[0m\n' "$VERSION"
 echo "  Web: https://echostrokes08.github.io/nebula/ (GitHub Pages tarda ~1 min en actualizar)"

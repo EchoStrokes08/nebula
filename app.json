@@ -15,7 +15,10 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.nebula.productividad",
-      "versionCode": 3
+      "versionCode": 3,
+      "permissions": [
+        "android.permission.REQUEST_INSTALL_PACKAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",

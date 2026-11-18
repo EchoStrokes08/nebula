@@ -24,6 +24,7 @@ import { startAuthListener, useAuth } from '@/features/auth/session';
 import { ConfigRequired } from '@/features/system/ConfigRequired';
 import { resolveGate } from '@/features/system/gate';
 import { PreviewBadge } from '@/features/system/PreviewBadge';
+import { UpdateBanner } from '@/features/system/UpdateBanner';
 import { UndoToast } from '@/components/overlays/UndoToast';
 import { ConfirmHost } from '@/components/overlays/ConfirmHost';
 import { clientEnv } from '@/lib/env';
@@ -78,6 +79,7 @@ export default function RootLayout() {
             <SpaceBackground />
             <StatusBar style="light" />
             <OfflineBanner />
+            <UpdateBanner />
             {gate === 'config' ? (
               <ConfigRequired missing={clientEnv.ok ? [] : clientEnv.missing} />
             ) : (

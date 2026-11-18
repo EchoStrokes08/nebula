@@ -10,7 +10,7 @@ if (!fs.existsSync(path.join(root, 'dist', 'index.html'))) throw new Error('Ejec
 fs.rmSync(target, { recursive: true, force: true });
 fs.mkdirSync(path.join(target, 'desktop'), { recursive: true });
 fs.mkdirSync(path.join(target, 'assets'), { recursive: true });
-for (const file of ['main.cjs', 'preload.cjs', 'state.cjs', 'links.cjs']) fs.copyFileSync(path.join(root, 'desktop', file), path.join(target, 'desktop', file));
+for (const file of ['main.cjs', 'preload.cjs', 'state.cjs', 'links.cjs', 'update.cjs']) fs.copyFileSync(path.join(root, 'desktop', file), path.join(target, 'desktop', file));
 fs.cpSync(path.join(root, 'dist'), path.join(target, 'dist'), { recursive: true });
 fs.copyFileSync(path.join(root, 'assets', 'icon.png'), path.join(target, 'assets', 'icon.png'));
 fs.writeFileSync(path.join(target, 'package.json'), JSON.stringify({ name: metadata.name, version, description: metadata.description, author: metadata.author, main: 'desktop/main.cjs', desktopName: metadata.desktopName, private: true }, null, 2));

@@ -21,6 +21,11 @@ export interface NebulaDesktopBridge {
   schedule(n: { id: string; title: string; body: string; at: number; route?: string }): Promise<void>;
   cancel(id: string): Promise<void>;
   cancelPrefix(prefix: string): Promise<void>;
+  /** Versión nueva publicada (null si no hay) e instalación: en Linux con AppImage se sustituye y reinicia. */
+  update?: {
+    check(): Promise<{ current: string; latest: string; notes: string; canInstall: boolean } | null>;
+    install(): Promise<{ status: 'restarting' | 'opened' | 'busy' | 'error'; message?: string }>;
+  };
   oauth: {
     /** Arranca el servidor de retorno y devuelve su URL (`http://127.0.0.1:<puerto>/auth/callback`). */
     listen(): Promise<string>;

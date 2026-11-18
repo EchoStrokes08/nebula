@@ -8,6 +8,9 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { readJson, writeJson, safeBounds } = require('./state.cjs');
 const { isAllowedRoute, deepLinkToRoute, findDeepLink, autostartEntry, normalizeShortcut, DEFAULT_SHORTCUT } = require('./links.cjs');
+const { UPDATE_INFO_URL, RELEASES_URL, isNewer, parseUpdateInfo, looksLikeAppImage } = require('./update.cjs');
+const { Readable } = require('node:stream');
+const { pipeline } = require('node:stream/promises');
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 let quitting = false;
 let tray = null;
@@ -290,6 +293,49 @@ function applyGlobalShortcut(accelerator) {
   if (ok) registeredShortcut = accelerator;
   return ok;
 }
+
+// ---- Actualizaciones ------------------------------------------------------------------------
+// El proceso principal consulta version.json (el renderer no puede: CSP) y, en Linux con
+// AppImage, descarga el nuevo, lo verifica, sustituye el actual y reinicia. En otro caso abre
+// la página de descargas. La URL de descarga nunca la decide el renderer.
+async function fetchUpdateInfo() {
+  const r = await net.fetch(`${UPDATE_INFO_URL}?t=${Date.now()}`, { cache: 'no-store' });
+  if (!r.ok) return null;
+  return parseUpdateInfo(await r.json());
+}
+// NEBULA_PRETEND_VERSION solo sirve para probar el actualizador con una versión ya publicada.
+const currentVersion = () => (/^\d+\.\d+\.\d+$/.test(process.env.NEBULA_PRETEND_VERSION ?? '') ? process.env.NEBULA_PRETEND_VERSION : app.getVersion());
+const canSelfUpdate = () => process.platform === 'linux' && !!process.env.APPIMAGE;
+let updating = false;
+handle('update:check', async () => {
+  try {
+    const info = await fetchUpdateInfo();
+    if (!info || !isNewer(info.version, currentVersion())) return null;
+    return { current: currentVersion(), latest: info.version, notes: info.notes, canInstall: canSelfUpdate() && !!info.linux };
+  } catch { return null; }
+});
+handle('update:install', async () => {
+  if (updating) return { status: 'busy' };
+  updating = true;
+  const target = process.env.APPIMAGE;
+  const temp = target ? `${target}.download` : null;
+  try {
+    const info = await fetchUpdateInfo();
+    if (!info || !info.linux || !canSelfUpdate()) { await shell.openExternal(RELEASES_URL); return { status: 'opened' }; }
+    const r = await net.fetch(info.linux, { redirect: 'follow' });
+    if (!r.ok || !r.body) throw new Error(`descarga ${r.status}`);
+    await pipeline(Readable.fromWeb(r.body), fs.createWriteStream(temp, { mode: 0o755 }));
+    const fd = fs.openSync(temp, 'r'); const head = Buffer.alloc(16); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
+    if (!looksLikeAppImage(head) || fs.statSync(temp).size < 20 * 1024 * 1024) throw new Error('el archivo descargado no es un AppImage');
+    fs.chmodSync(temp, 0o755);
+    fs.renameSync(temp, target); // el proceso actual sigue usando el archivo antiguo hasta reiniciar
+    setTimeout(() => { quitting = true; app.relaunch({ execPath: target, args: [] }); app.exit(0); }, 300);
+    return { status: 'restarting' };
+  } catch (e) {
+    if (temp) fs.rmSync(temp, { force: true });
+    return { status: 'error', message: e instanceof Error ? e.message : String(e) };
+  } finally { updating = false; }
+});
 
 // ---- Inicio con el sistema en Linux (XDG autostart) ------------------------------------------
 const autostartFile = () => path.join(process.env.XDG_CONFIG_HOME || path.join(app.getPath('home'), '.config'), 'autostart', 'nebula.desktop');
