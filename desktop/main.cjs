@@ -3,6 +3,7 @@
 // solo la API mínima del preload. Ver docs/ARQUITECTURA.md §1.1.
 const { app, BrowserWindow, Notification, ipcMain, protocol, safeStorage, shell, net, Tray, Menu, screen, nativeImage, globalShortcut } = require('electron');
 const http = require('node:http');
+const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
@@ -329,7 +330,13 @@ handle('update:install', async () => {
     if (!looksLikeAppImage(head) || fs.statSync(temp).size < 20 * 1024 * 1024) throw new Error('el archivo descargado no es un AppImage');
     fs.chmodSync(temp, 0o755);
     fs.renameSync(temp, target); // el proceso actual sigue usando el archivo antiguo hasta reiniciar
-    setTimeout(() => { quitting = true; app.relaunch({ execPath: target, args: [] }); app.exit(0); }, 300);
+    // app.relaunch() no sirve aquí: arrancaría desde el montaje del AppImage viejo, que desaparece
+    // al salir, y chocaría con el bloqueo de instancia única. Un `sh` independiente espera a que
+    // esta instancia termine y abre el AppImage nuevo con un entorno limpio.
+    const env = { ...process.env };
+    for (const k of ['APPDIR', 'APPIMAGE', 'ARGV0', 'OWD', 'NEBULA_PRETEND_VERSION']) delete env[k];
+    spawn('/bin/sh', ['-c', 'sleep 2; exec "$0"', target], { detached: true, stdio: 'ignore', cwd: app.getPath('home'), env }).unref();
+    setTimeout(() => { quitting = true; app.exit(0); }, 300);
     return { status: 'restarting' };
   } catch (e) {
     if (temp) fs.rmSync(temp, { force: true });
