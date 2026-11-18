@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { BookOpen, CalendarDays, CheckSquare, ChevronDown, ChevronUp, Flag, Flame, Lightbulb, Send, Sparkles, Swords, UserRound, Wand2 } from 'lucide-react-native';
-import { useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
+import { BookOpen, CalendarDays, CheckSquare, ChevronDown, ChevronUp, Flag, Flame, GraduationCap, Lightbulb, Send, Sparkles, Swords, UserRound, Wand2 } from 'lucide-react-native';
+import { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
@@ -20,6 +20,7 @@ import { assistanceSchema } from '@/domain/capture/actions';
 import type { AssistantTone } from '@/domain/assistant/context';
 import { colors, fontFamily, gradients, radius, spacing } from '@/design/tokens';
 import { contextCounts } from '@/features/assistant/buildContext';
+import { looksLikePlanRequest, PLAN_TEMPLATE, planPromptFor } from '@/features/assistant/planPrompts';
 import { useAssistantContext } from '@/features/assistant/useAssistantContext';
 import { setTarget } from '@/features/habits/api';
 import { useHabitMutation, useHabitsData } from '@/features/habits/hooks';
@@ -77,17 +78,21 @@ function Personalize() {
 }
 
 export default function Asistente() {
+  const params = useLocalSearchParams<{ meta?: string }>();
   const ctx = useAssistantContext();
   const data = useHabitsData();
   const today = useToday();
   const reduced = useReducedMotion();
-  const [request, setRequest] = useState('');
+  const goalParam = typeof params.meta === 'string' ? params.meta : '';
+  const [request, setRequest] = useState(() => (goalParam ? planPromptFor(goalParam) : ''));
+  const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [conversation, setConversation] = useState<Turn[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [showShared, setShowShared] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [autoApply, setAutoApply] = useState(false);
   const adapt = useHabitMutation(async ({ id, target }: { id: string; target: number }) => {
     const habit = data.habits.data?.find((h) => h.id === id);
     const current = habit?.targets.filter((t) => t.validFrom <= today).sort((a, b) => b.validFrom.localeCompare(a.validFrom))[0];
@@ -180,6 +185,16 @@ export default function Asistente() {
         <>
           {conversation.length === 0 ? (
             <View style={styles.suggestions}>
+              <Pressable
+                onPress={() => { setRequest(PLAN_TEMPLATE); setTimeout(() => input.current?.focus(), 0); }}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityHint="Escribe tu meta en el cuadro y envía"
+                style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.suggestion, styles.planSuggestion, (pressed || hovered) && styles.suggestionActive]}
+              >
+                <GraduationCap size={14} color={colors.success} />
+                <Text variant="callout">No sé cómo lograr una meta</Text>
+              </Pressable>
               {SUGGESTIONS.map((s) => (
                 <Pressable key={s.label} onPress={() => void send(s.prompt)} disabled={busy} accessibilityRole="button" style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.suggestion, (pressed || hovered) && styles.suggestionActive]}>
                   <Wand2 size={14} color={colors.accentSoft} />
@@ -200,19 +215,20 @@ export default function Asistente() {
                   <RichText>{turn.response.message}</RichText>
                 </View>
               </View>
-              {turn.response.actions.map((a, j) => <ActionCard key={j} action={a} />)}
+              {turn.response.actions.map((a, j) => <ActionCard key={j} action={a} autoApply={autoApply && i === conversation.length - 1} />)}
             </Animated.View>
           ))}
           {busy ? (
             <View style={styles.botRow}>
               <Orb size={30} />
-              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">Pensando con tus datos…</Text></View>
+              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{looksLikePlanRequest(request) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…'}</Text></View>
             </View>
           ) : null}
           {error ? <Text tone="warning" accessibilityLiveRegion="polite">{error}</Text> : null}
 
           <View style={[styles.composer, glassBlur]}>
             <TextInput
+              ref={input}
               value={request}
               onChangeText={setRequest}
               placeholder={conversation.length ? 'Sigue la conversación…' : 'Pregunta a Nebula…'}
@@ -230,6 +246,7 @@ export default function Asistente() {
               <Send size={18} color="#fff" />
             </Pressable>
           </View>
+          <Switch label="Aplicar automáticamente" description="Nebula crea al momento las tareas, hábitos, metas y planes que proponga. Mover o cambiar tareas existentes sigue pidiendo confirmación." value={autoApply} onChange={setAutoApply} />
           {conversation.length ? <Button label="Nueva conversación" variant="ghost" onPress={() => { setConversation([]); setError(''); }} /> : null}
         </>
       )}
@@ -273,6 +290,7 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
   suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   suggestion: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.borderStrong },
+  planSuggestion: { borderColor: 'rgba(110, 231, 183, 0.45)' },
   suggestionActive: { backgroundColor: colors.accentMuted, borderColor: colors.accentBright },
   turn: { gap: spacing[3] },
   userBubble: { alignSelf: 'flex-end', maxWidth: '86%', paddingHorizontal: spacing[4], paddingVertical: spacing[3], borderRadius: radius.lg, borderBottomRightRadius: 6 },

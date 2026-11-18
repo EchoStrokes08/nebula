@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calculator, Check, CheckCircle2, Link2, Pause, Pencil, Play, Plus, Trash2, X, XCircle } from 'lucide-react-native';
+import { ArrowLeft, Calculator, Check, CheckCircle2, GraduationCap, Link2, Pause, Pencil, Play, Plus, Trash2, X, XCircle } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LinkifiedText } from '@/components/content/LinkText';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Chip } from '@/components/forms/Chip';
 import { formatDay } from '@/components/forms/DateField';
@@ -103,6 +104,7 @@ export default function MetaDetalle() {
       </View>
 
       {goal.expectedOutcome ? <Text tone="secondary">«{goal.expectedOutcome}»</Text> : null}
+      {goal.description ? <LinkifiedText>{goal.description}</LinkifiedText> : null}
 
       {goal.targetDate && !closed ? (
         <View style={[styles.card, daysLeft !== null && daysLeft < 0 && styles.warn]}>
@@ -117,6 +119,7 @@ export default function MetaDetalle() {
 
       <View style={styles.actions}>
         {goal.metric === 'quantity' && !closed ? <Button label="Registrar avance" icon={<Plus size={18} color={colors.textOnAccent} />} onPress={() => setProgressSheet(true)} /> : null}
+        {!closed ? <Button label="Plan con IA" variant="secondary" icon={<GraduationCap size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/asistente', params: { meta: goal.title } })} /> : null}
         <Button label="Simular" variant="secondary" icon={<Calculator size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/simulador', params: { meta: goal.id } })} />
         <Button label="Editar" variant="secondary" icon={<Pencil size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/meta/editar/[id]', params: { id: goal.id } })} />
       </View>

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LinkifiedText } from '@/components/content/LinkText';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -83,6 +84,8 @@ export function HabitDetail({ id, embedded }: { id: string; embedded?: boolean }
         <Text variant="title1" accessibilityRole="header">{habit.name}</Text>
         {t ? <Text tone="secondary">{progressText(habit.kind, habit.unit, s.current, t.period)}</Text> : null}
       </View>
+
+      {habit.description ? <LinkifiedText>{habit.description}</LinkifiedText> : null}
 
       {!habit.archived ? <HabitRow s={s} today={today} /> : null}
 

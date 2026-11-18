@@ -59,9 +59,31 @@ Sin proveedor, sin red, con cuota agotada o con JSON inválido, la app conserva 
 planificador y recomendaciones. El parser español interpreta fechas relativas a la zona
 horaria del perfil y ofrece vista previa editable mediante el texto de captura.
 
+## Planes para metas
+
+Cuando la persona no sabe cómo conseguir algo («No sé cómo lograr una meta» en el asistente, o
+**Plan con IA** en el detalle de una meta), el modelo devuelve una acción `create_plan`: meta nueva
+o existente (`goalId` de `context.goals`), hitos, tareas con fecha y «qué estudiar», hábitos en sus
+días activos y recursos web. `ai-assist` comprueba cada enlace (`links.ts`: solo https público, sin IPs
+ni hosts internos; descarta 404/410/5xx y los que no resuelven) antes de responder.
+
+La tarjeta permite desmarcar partes y aplica por pasos reanudables (un reintento no duplica). Las
+tareas guardan lo que estudiar y los enlaces en sus notas; los hábitos, en su descripción (≤500), y
+quedan vinculados a la meta. Notas y descripciones muestran los enlaces pulsables.
+
+**Aplicar automáticamente** (interruptor del asistente, por sesión) crea al momento tareas, hábitos,
+metas, eventos y planes. Mover, estimar o priorizar tareas existentes siempre pide confirmación.
+
 ## Cambiar de proveedor
 
-`AI_PROVIDER=groq` usa Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
+El proveedor principal es **Google, Gemini 4 Hydrogen** (`AI_PROVIDER=google`, endpoint compatible
+`https://generativelanguage.googleapis.com/v1beta/openai`, `AI_REASONING_EFFORT=low` para responder en
+~15 s), con **Groq** de respaldo mediante `AI_FALLBACK_PROVIDER`, `AI_FALLBACK_BASE_URL`,
+`AI_FALLBACK_MODEL` y `AI_FALLBACK_API_KEY`: si el principal falla, se intenta el respaldo.
+`AI_TIMEOUT_MS` (45000) y `AI_MAX_TOKENS` (8000) son opcionales. `node scripts/test-plan.mjs "<meta>"`
+prueba un plan real con el principal y comprueba sus enlaces sin escribir datos.
+
+`AI_PROVIDER=groq` y `google` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
 `store=false`. `AI_BASE_URL`, `AI_MODEL` y `AI_API_KEY` son secretos del servidor. El endpoint
 requiere HTTPS y el timeout es de 25 segundos. No hay ejecución de código del modelo.
 

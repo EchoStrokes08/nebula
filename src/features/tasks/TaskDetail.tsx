@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { LinkifiedText } from '@/components/content/LinkText';
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Chip } from '@/components/forms/Chip';
 import { formatDay } from '@/components/forms/DateField';
@@ -124,7 +125,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
       {task.notes ? (
         <View style={styles.card}>
           <Text variant="title3">Notas</Text>
-          <Text tone="secondary">{task.notes}</Text>
+          <LinkifiedText>{task.notes}</LinkifiedText>
         </View>
       ) : null}
 

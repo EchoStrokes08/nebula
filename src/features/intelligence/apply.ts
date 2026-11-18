@@ -26,11 +26,13 @@ export function describeAction(a: ProposedAction): string {
     case 'move_task': return `Mover tarea al ${a.day} a las ${a.time} (${a.minutes} min)`;
     case 'estimate_task': return `Estimar tarea en ${a.minutes} min`;
     case 'prioritize_task': return `Prioridad de tarea: ${a.priority}`;
+    case 'create_plan': return `Plan: ${a.goal} · ${a.milestones.length} hitos · ${a.tasks.length} tareas · ${a.habits.length} hábitos`;
   }
 }
 /** Ejecutar solo desde un botón de confirmación explícita. Nunca desde una respuesta del modelo. */
 export async function applyAction(proposal: ProposedAction, tz: string): Promise<void> {
   const a = actionSchema.parse(proposal);
+  if (a.type === 'create_plan') throw new Error('Los planes se aplican desde su tarjeta.');
   const today = dayKeyOf(new Date(), tz);
   if (a.type === 'create_task') await createTask({ title: a.title, priority: a.priority, dueDate: a.day as DayKey | null, dueTime: a.time, estimateMinutes: a.minutes, recurrence: a.recurrence ? `FREQ=${a.recurrence.toUpperCase()}` : null });
   else if (a.type === 'create_habit') await createHabit({ name: a.title, kind: a.minutes ? 'duration' : 'binary', unit: a.minutes ? 'min' : null, icon: 'circle', color: 'violet', scheduleDays: a.days, startDay: today, priority: 1, period: 'day', target: a.minutes ?? 1, reminderTime: a.time });
