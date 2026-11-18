@@ -30,7 +30,7 @@ import { appVersion } from '@/features/system/update';
 import { getDesktopBridge } from '@/platform/desktopBridge';
 import { useUpdatePreferences } from '@/features/profile/usePreferences';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { assistantErrorMessage, readAssistantFailure } from '@/domain/assistant/errors';
+import { askWithRetry } from '@/domain/assistant/errors';
 
 type Response = ReturnType<typeof assistanceSchema.parse>;
 interface Turn { request: string; response: Response }
@@ -90,6 +90,8 @@ export default function Asistente() {
   const [request, setRequest] = useState(() => (goalParam ? planPromptFor(goalParam) : ''));
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [busy, setBusy] = useState(false);
+  /** Aviso mientras se reintenta solo tras una saturación momentánea. */
+  const [retrying, setRetrying] = useState('');
   const [error, setError] = useState('');
   const [conversation, setConversation] = useState<Turn[]>([]);
   const [dismissed, setDismissed] = useState<string[]>([]);
@@ -118,13 +120,17 @@ export default function Asistente() {
         { role: 'user' as const, text: t.request.slice(0, 2000) },
         { role: 'assistant' as const, text: t.response.message.slice(0, 2000) },
       ]);
-      let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history, client: { version: appVersion(), platform: Platform.OS === 'web' && getDesktopBridge() ? 'desktop' : Platform.OS } } });
-      // Servidor aún sin desplegar la versión con contexto completo: reintenta con el resumen antiguo.
-      if (r.error && (r.error as { context?: { status?: number } }).context?.status === 400) {
-        const legacy = { from: context.week.from, to: context.week.to, tasksCompleted: context.week.tasksCompleted, habitRecords: context.week.habitRecords, activeDays: context.week.activeDays };
-        r = await db().functions.invoke('ai-assist', { body: { message: text, context: legacy } });
-      }
-      if (r.error) throw new Error(assistantErrorMessage(await readAssistantFailure(r.error)));
+      const ask = async () => {
+        let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history, client: { version: appVersion(), platform: Platform.OS === 'web' && getDesktopBridge() ? 'desktop' : Platform.OS } } });
+        // Servidor aún sin desplegar la versión con contexto completo: reintenta con el resumen antiguo.
+        if (r.error && (r.error as { context?: { status?: number } }).context?.status === 400) {
+          const legacy = { from: context.week.from, to: context.week.to, tasksCompleted: context.week.tasksCompleted, habitRecords: context.week.habitRecords, activeDays: context.week.activeDays };
+          r = await db().functions.invoke('ai-assist', { body: { message: text, context: legacy } });
+        }
+        return r;
+      };
+      // Saturación o corte momentáneo: espera unos segundos y reintenta sola (como mucho dos veces).
+      const r = await askWithRetry(ask, setRetrying);
       const response = assistanceSchema.parse(r.data);
       setConversation((c) => [...c, { request: text, response }]);
       setRequest('');
@@ -132,6 +138,7 @@ export default function Asistente() {
       setError(e instanceof Error ? e.message : 'No se pudo consultar al asistente.');
     } finally {
       setBusy(false);
+      setRetrying('');
     }
   };
 
@@ -224,7 +231,7 @@ export default function Asistente() {
           {busy ? (
             <View style={styles.botRow}>
               <Orb size={30} />
-              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{looksLikePlanRequest(request) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…'}</Text></View>
+              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{retrying || (looksLikePlanRequest(request) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…')}</Text></View>
             </View>
           ) : null}
           {error ? <Text tone="warning" accessibilityLiveRegion="polite">{error}</Text> : null}

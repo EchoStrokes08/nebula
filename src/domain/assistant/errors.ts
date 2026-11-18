@@ -49,3 +49,43 @@ export async function readAssistantFailure(error: unknown): Promise<AssistantFai
   }
   return { status, code, name: e?.name };
 }
+
+/** Esperas antes de cada reintento automático (como mucho, dos reintentos). */
+export const RETRY_DELAYS_MS = [4000, 10000] as const;
+/** Si un intento ya tardó esto, el servidor probó la cadena entera con calma: no se insiste. */
+const SLOW_ATTEMPT_MS = 45000;
+
+/**
+ * Reintento automático ante fallos pasajeros (saturación o conexión) que fallaron rápido: en
+ * unos segundos suelen liberarse los modelos. El servidor no cobra las consultas fallidas.
+ * Devuelve la espera en ms, o null si no hay que reintentar.
+ */
+export function retryDelay(kind: AssistantErrorKind, elapsedMs: number, retriesDone: number): number | null {
+  if (kind !== 'models_busy' && kind !== 'network') return null;
+  if (elapsedMs >= SLOW_ATTEMPT_MS) return null;
+  return RETRY_DELAYS_MS[retriesDone] ?? null;
+}
+
+/**
+ * Llama al asistente reintentando solo los fallos pasajeros. `ask` hace una llamada y devuelve el
+ * resultado de `functions.invoke`; `onRetry` recibe el aviso que mostrar mientras se espera ('' al
+ * reintentar). Lanza un Error con el mensaje para la persona si al final no hay respuesta.
+ */
+export async function askWithRetry<T extends { error: unknown; data: unknown }>(
+  ask: () => Promise<T>,
+  onRetry: (notice: string) => void = () => undefined,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  now: () => number = Date.now,
+): Promise<T> {
+  for (let retries = 0; ; retries += 1) {
+    const started = now();
+    const r = await ask();
+    if (!r.error) return r;
+    const failure = await readAssistantFailure(r.error);
+    const wait = retryDelay(assistantErrorKind(failure), now() - started, retries);
+    if (wait === null) throw new Error(assistantErrorMessage(failure));
+    onRetry(failure.status === undefined ? 'Se cortó la conexión; reintentando…' : 'Los modelos de IA están muy ocupados; reintentando en unos segundos…');
+    await sleep(wait);
+    onRetry('');
+  }
+}
