@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/primitives/Text';
@@ -14,16 +14,22 @@ import { useMotivationContext } from './useMotivationContext';
 export function MotivationLine({ moment, extra }: { moment: MotivationContext['moment']; extra?: Partial<MotivationContext> }) {
   const base = useMotivationContext(moment);
   const ctx = base ? { ...base, ...extra } : null;
-  const recent = useRecentMessages((s) => s.recent);
-  const remember = useRecentMessages((s) => s.remember);
   const today = useToday();
+  const key = `${today}:${moment}`;
+  const pinned = useRecentMessages((s) => s.picks[key]);
+  const remember = useRecentMessages((s) => s.remember);
+  const pin = useRecentMessages((s) => s.pin);
+  // Los recientes se leen una sola vez al montar: si otra línea (p. ej. Hoy detrás de Enfoque)
+  // guarda su mensaje, esta no vuelve a elegir. Antes se realimentaban en un bucle infinito.
+  const [recentAtMount] = useState(() => useRecentMessages.getState().recent);
   // Semilla estable por día y momento: el mensaje no cambia en cada render.
   const day = [...today].reduce((a, c) => a + c.charCodeAt(0), 0);
-  // Los recientes excluyen el elegido hoy para que el mensaje no cambie al volver a la pantalla.
-  const chosen = ctx ? chooseMessage({ ...ctx, recent: recent.slice(1) }, day + moment.length) : null;
+  const chosen = ctx ? chooseMessage({ ...ctx, recent: recentAtMount.filter((id) => id !== pinned), prefer: pinned }, day + moment.length) : null;
   useEffect(() => {
-    if (chosen) remember(chosen.id);
-  }, [chosen?.id, remember]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!chosen || chosen.id === pinned) return;
+    pin(key, chosen.id);
+    remember(chosen.id);
+  }, [chosen?.id, pinned, key, pin, remember]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!chosen) return null;
   return (
     <View style={styles.root} accessibilityRole="text">

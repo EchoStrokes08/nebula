@@ -25,6 +25,8 @@ export interface MotivationContext {
   racha?: number;
   /** Ids mostrados recientemente (se evitan). */
   recent?: string[];
+  /** Id ya elegido hoy para este momento: se mantiene si sigue siendo válido. */
+  prefer?: string;
 }
 
 const INTENSITY_ORDER: Intensity[] = ['balanced', 'demanding', 'intense'];
@@ -96,6 +98,8 @@ export function chooseMessage(ctx: MotivationContext, seed = 0, library: Message
       .map((msg) => ({ msg, text: fill(msg.text, vars) }))
       .filter((x): x is { msg: Message; text: string } => x.text !== null);
     if (!pool.length) continue;
+    const kept = ctx.prefer ? pool.find((x) => x.msg.id === ctx.prefer) : undefined;
+    if (kept) return { id: kept.msg.id, text: kept.text, category };
     // Prefiere los de la intensidad elegida y los no vistos recientemente.
     const fresh = pool.filter((x) => !recent.has(x.msg.id));
     const candidates = (fresh.length ? fresh : pool).sort((a, b) => (b.msg.intensity === ctx.intensity ? 1 : 0) - (a.msg.intensity === ctx.intensity ? 1 : 0));
