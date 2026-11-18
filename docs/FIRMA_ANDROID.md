@@ -15,15 +15,25 @@ firmar una «actualización» falsa).
 Si se pierde, ninguna versión futura podrá instalarse encima de la actual: habría que desinstalar
 otra vez en todos los móviles.
 
-## Cambio de clave (1.2.3 → 1.2.4)
+## Cambio de clave (1.2.3 → 1.2.4) y rotación (desde 1.2.5)
 
-Android no deja actualizar una app con otra firma: quien tenga la 1.2.3 o anterior debe
-desinstalar Nebula una vez e instalar la 1.2.4 desde la web. Los datos sincronizados se recuperan
-al iniciar sesión; lo que no se hubiera sincronizado se pierde.
-
-Ojo con los Xiaomi: si Nebula sigue en el «segundo espacio» o «security space» (otro usuario de
-Android), el instalador sigue diciendo «conflicto con un paquete ya presente». `adb uninstall
+La 1.2.4 se publicó firmada solo con la clave nueva: Android no la deja instalar encima de la
+1.0.0–1.2.3 (firmadas con la clave de depuración) y hay que desinstalar. En los Xiaomi, además,
+la app puede seguir en el «segundo espacio» o «security space» (otro usuario de Android) y el
+instalador sigue diciendo «conflicto con un paquete ya presente»; `adb uninstall
 app.nebula.productividad` la quita de todos los usuarios.
+
+Desde la 1.2.5 el APK lleva **rotación de clave** (APK Signature Scheme v3,
+`scripts/sign-apk-rotation.sh`, lo llaman `build-apk.sh` y `release.sh`): firma v2 con la clave
+antigua y v3 con la nueva, más una cadena en la que la clave antigua certifica a la nueva. En
+Android 9+ la versión nueva se instala **encima** de cualquier versión anterior, sin desinstalar,
+también desde el aviso «Hay una versión nueva» de la 1.2.x.
+
+- Clave antigua: `~/.local/share/nebula-firma/clave-antigua-debug.keystore` (la de depuración
+  estándar de React Native, `androiddebugkey` / `android`; huella `FA:C6:17:45:…:3B:9C`).
+- Cadena: `~/.local/share/nebula-firma/rotacion.lineage`. **Cópiala junto al `.jks`**: si se
+  pierde se puede regenerar con las dos claves (el script la crea si no existe).
+- Android 7–8 no entiende v3: allí el APK cuenta como firmado con la clave antigua.
 
 ## Que Play Protect conozca la app
 

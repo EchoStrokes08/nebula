@@ -49,6 +49,8 @@ npx expo prebuild --platform android --no-install
 (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain -q)
 mkdir -p release
 cp android/app/build/outputs/apk/release/app-release.apk release/nebula.apk
+# Rotación de clave: las instalaciones firmadas con la clave antigua (≤1.2.3) se actualizan encima.
+bash scripts/sign-apk-rotation.sh release/nebula.apk
 ls -lh release/nebula.apk
 
 step "4/7 AppImage de Linux e instalador de Windows"

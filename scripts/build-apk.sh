@@ -10,4 +10,5 @@ npx expo prebuild --platform android --no-install
 (cd android && ./gradlew assembleRelease --console=plain)
 mkdir -p release
 cp android/app/build/outputs/apk/release/app-release.apk release/nebula.apk
+bash scripts/sign-apk-rotation.sh release/nebula.apk
 echo "APK listo: release/nebula.apk"
