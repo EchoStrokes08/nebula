@@ -45,47 +45,174 @@ export function cleanOutput(raw: string): unknown {
   return data;
 }
 
-function single(provider: string, base: string, model: string, key: string, timeoutMs: number, maxTokens: number, effort: string | undefined, send: typeof fetch): Provider {
+/** Error de un modelo concreto: `transient` (saturado, límite, caído, lento) o permanente. */
+export class ModelError extends Error {
+  readonly transient: boolean;
+  readonly retryAfterMs: number | null;
+  constructor(message: string, transient: boolean, retryAfterMs: number | null = null) {
+    super(message);
+    this.transient = transient;
+    this.retryAfterMs = retryAfterMs;
+  }
+}
+
+const retryAfter = (r: Response): number | null => {
+  const raw = r.headers?.get?.('retry-after');
+  if (!raw) return null;
+  const secs = Number(raw);
+  if (Number.isFinite(secs)) return Math.min(secs * 1000, 15 * 60 * 1000);
+  const at = Date.parse(raw);
+  return Number.isFinite(at) ? Math.max(0, Math.min(at - Date.now(), 15 * 60 * 1000)) : null;
+};
+
+interface ModelSpec { id: string; provider: string; base: string; model: string; key: string; effort: string | undefined }
+
+/** Lee un flujo SSE de chat/completions y junta el contenido de los deltas. */
+async function readStream(body: ReadableStream<Uint8Array>): Promise<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = ''; let out = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let nl: number;
+    while ((nl = buffer.indexOf('\n')) >= 0) {
+      const line = buffer.slice(0, nl).trim(); buffer = buffer.slice(nl + 1);
+      if (!line.startsWith('data:')) continue;
+      const data = line.slice(5).trim();
+      if (data === '[DONE]') return out;
+      try { out += JSON.parse(data).choices?.[0]?.delta?.content ?? ''; } catch { /* línea parcial o de control */ }
+      if (out.length > 150000) throw new ModelError('salida enorme', true, 0);
+    }
+  }
+  return out;
+}
+
+/**
+ * Un intento contra un modelo. Con streaming (Google), si el modelo no empieza a responder en
+ * `connectMs` se da por saturado (está en cola) y se pasa al siguiente sin esperar al tiempo
+ * total; si empieza, se le deja terminar dentro de `timeoutMs`.
+ */
+function single(spec: ModelSpec, timeoutMs: number, connectMs: number, maxTokens: number, send: typeof fetch): Provider {
+  const { provider, base, model, key, effort } = spec;
   // `input`: lo que el modelo debe escribir (los campos con valor por defecto son opcionales).
   const schema = z.toJSONSchema(assistanceSchema, { io: 'input' });
   const system = instructions(schema);
   return { async respond(message, context, history = []) {
-    if (!base.startsWith('https://')) throw new Error('AI_BASE_URL requiere HTTPS');
+    if (!base.startsWith('https://')) throw new ModelError('AI_BASE_URL requiere HTTPS', false);
     const isResponses = provider === 'openai';
+    const stream = provider === 'google';
     const payload = isResponses
       ? { model, store: false, instructions: system, input: JSON.stringify({ history, context, message }), max_output_tokens: maxTokens, text: { format: { type: 'json_object' } } }
-      : { model, messages: [{ role: 'system', content: system }, ...history.map((t) => ({ role: t.role, content: t.text })), { role: 'user', content: JSON.stringify({ context, message }) }], max_tokens: maxTokens, response_format: { type: 'json_object' }, ...(effort && { reasoning_effort: effort }) };
-    const r = await send(`${base.replace(/\/$/, '')}/${isResponses ? 'responses' : 'chat/completions'}`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: AbortSignal.timeout(timeoutMs) });
-    if (!r.ok) throw new Error('provider unavailable');
-    const data = await r.json();
-    const output = isResponses
-      ? (data.output ?? []).flatMap((item: { content?: { type: string; text?: string }[] }) => item.content ?? []).filter((c: { type: string }) => c.type === 'output_text').map((c: { text: string }) => c.text).join('')
-      : data.choices?.[0]?.message?.content;
-    if (typeof output !== 'string' || output.length > 150000) throw new Error('invalid provider output');
-    return assistanceSchema.parse(cleanOutput(output));
+      : { model, messages: [{ role: 'system', content: system }, ...history.map((t) => ({ role: t.role, content: t.text })), { role: 'user', content: JSON.stringify({ context, message }) }], max_tokens: maxTokens, response_format: { type: 'json_object' }, ...(stream && { stream: true }), ...(effort && { reasoning_effort: effort }) };
+    const abort = new AbortController();
+    let phase: 'connect' | 'read' = 'connect';
+    const total = setTimeout(() => abort.abort(), timeoutMs);
+    const connect = stream ? setTimeout(() => abort.abort(), Math.min(connectMs, timeoutMs)) : null;
+    try {
+      let r: Response;
+      try {
+        r = await send(`${base.replace(/\/$/, '')}/${isResponses ? 'responses' : 'chat/completions'}`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: abort.signal });
+      } catch {
+        throw new ModelError(phase === 'connect' && stream ? 'no empezó a responder a tiempo (saturado)' : 'sin respuesta (red o tiempo agotado)', true);
+      }
+      if (connect) clearTimeout(connect);
+      phase = 'read';
+      if (!r.ok) {
+        // 429 (cuota/límite), 408, 5xx (saturado/caído) y 413 (demasiado grande para su límite por
+        // minuto) son pasajeros: se prueba otro modelo y este descansa un rato.
+        const transient = r.status === 408 || r.status === 413 || r.status === 429 || r.status >= 500;
+        await r.body?.cancel?.().catch(() => undefined);
+        throw new ModelError(`HTTP ${r.status}`, transient, retryAfter(r));
+      }
+      let output: unknown;
+      try {
+        if (stream && r.body) output = await readStream(r.body);
+        else {
+          const data = await r.json();
+          output = isResponses
+            ? (data.output ?? []).flatMap((item: { content?: { type: string; text?: string }[] }) => item.content ?? []).filter((c: { type: string }) => c.type === 'output_text').map((c: { text: string }) => c.text).join('')
+            : data.choices?.[0]?.message?.content;
+        }
+      } catch (e) {
+        if (e instanceof ModelError) throw e;
+        throw new ModelError('respuesta cortada (tiempo agotado)', true);
+      }
+      if (typeof output !== 'string' || !output.trim() || output.length > 150000) throw new ModelError('salida vacía o enorme', true, 0);
+      try { return assistanceSchema.parse(cleanOutput(output)); } catch { throw new ModelError('salida con formato inválido', true, 0); }
+    } finally {
+      clearTimeout(total); if (connect) clearTimeout(connect);
+    }
   } };
 }
 
 /**
- * El endpoint, modelo y claves solo se configuran en secretos del servidor.
- * `AI_*` es el proveedor principal; `AI_FALLBACK_*` (opcional) se usa si el principal falla.
+ * Estado de salud de cada modelo, compartido entre peticiones mientras la función siga caliente.
+ * Un modelo saturado se salta durante su `Retry-After` (o 60 s; más si falla seguido) en vez de
+ * hacer esperar a cada persona. Las salidas inválidas no lo castigan (descanso 0).
  */
-export function createProvider(env: (key: string) => string | undefined, send: typeof fetch = fetch): Provider | null {
+const health = new Map<string, { until: number; strikes: number }>();
+export const resetModelHealth = () => health.clear();
+const DEFAULT_COOLDOWN_MS = 60_000;
+
+function markFailure(id: string, e: unknown, now: number) {
+  const prev = health.get(id);
+  const strikes = (prev?.strikes ?? 0) + 1;
+  const hinted = e instanceof ModelError ? e.retryAfterMs : null;
+  const cool = hinted ?? Math.min(DEFAULT_COOLDOWN_MS * 2 ** (strikes - 1), 10 * 60_000);
+  health.set(id, { until: now + cool, strikes });
+}
+
+/**
+ * Cadena de modelos con respaldo inteligente. Orden: principal (`AI_*`), modelos alternativos del
+ * mismo proveedor y clave (`AI_ALTERNATE_MODELS`, separados por comas), respaldo (`AI_FALLBACK_*`) y
+ * sus alternativos (`AI_FALLBACK_ALTERNATE_MODELS`).
+ *  - Se salta a los que están descansando; si todos lo están, se prueba el que antes se recupere.
+ *  - Presupuesto total de tiempo (`AI_DEADLINE_MS`, 140 s < límite de la Edge Function): cada
+ *    intento recibe como mucho lo que queda, y no se empieza uno sin margen suficiente.
+ *  - Un error permanente (clave inválida, 400) también pasa al siguiente, pero sin reintentarlo.
+ *  - Elegir rápido: un 503/429 llega en ~1 s; con streaming, un modelo en cola se abandona a los
+ *    `AI_CONNECT_TIMEOUT_MS` (20 s) sin esperar a su tiempo total.
+ */
+export function createProvider(env: (key: string) => string | undefined, send: typeof fetch = fetch, now: () => number = Date.now): Provider | null {
   const timeoutMs = Number(env('AI_TIMEOUT_MS') ?? 90000);
   const maxTokens = Number(env('AI_MAX_TOKENS') ?? 16000);
-  const build = (prefix: 'AI_' | 'AI_FALLBACK_') => {
+  const deadlineMs = Number(env('AI_DEADLINE_MS') ?? 140000);
+  const connectMs = Number(env('AI_CONNECT_TIMEOUT_MS') ?? 20000);
+  const MIN_ATTEMPT_MS = 15000;
+  const specs: ModelSpec[] = [];
+  for (const prefix of ['AI_', 'AI_FALLBACK_'] as const) {
     const provider = env(`${prefix}PROVIDER`) ?? 'openai';
     const key = env(`${prefix}API_KEY`); const model = env(`${prefix}MODEL`);
-    if (!key || !model) return null;
-    return single(provider, env(`${prefix}BASE_URL`) ?? DEFAULT_BASE[provider] ?? DEFAULT_BASE.openai!, model, key, timeoutMs, maxTokens, env(`${prefix}REASONING_EFFORT`), send);
-  };
-  const chain = [build('AI_'), build('AI_FALLBACK_')].filter((p): p is Provider => p !== null);
-  if (!chain.length) return null;
-  return { async respond(message, context, history = []) {
-    let last: unknown;
-    for (const p of chain) {
-      try { return await p.respond(message, context, history); } catch (e) { last = e; }
+    if (!key || !model) continue;
+    const base = env(`${prefix}BASE_URL`) ?? DEFAULT_BASE[provider] ?? DEFAULT_BASE.openai!;
+    const alternates = (env(`${prefix}ALTERNATE_MODELS`) ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+    for (const m of [model, ...alternates]) {
+      const id = `${provider}:${m}`;
+      if (!specs.some((s) => s.id === id)) specs.push({ id, provider, base, model: m, key, effort: m === model ? env(`${prefix}REASONING_EFFORT`) : undefined });
     }
-    throw last;
+  }
+  if (!specs.length) return null;
+  const chain = specs.map((spec) => ({ spec, timeoutMs }));
+  return { async respond(message, context, history = []) {
+    const start = now();
+    const ready = chain.filter((c) => (health.get(c.spec.id)?.until ?? 0) <= start);
+    // Todos descansando: se prueban igualmente, empezando por el que antes se recupere.
+    const order = ready.length ? [...ready, ...chain.filter((c) => !ready.includes(c))] : [...chain].sort((a, b) => (health.get(a.spec.id)?.until ?? 0) - (health.get(b.spec.id)?.until ?? 0));
+    for (const c of order) {
+      const left = deadlineMs - (now() - start);
+      if (left < MIN_ATTEMPT_MS) break;
+      try {
+        const result = await single(c.spec, Math.min(c.timeoutMs, left - 2000), connectMs, maxTokens, send).respond(message, context, history);
+        health.delete(c.spec.id);
+        console.log(JSON.stringify({ ai: 'ok', model: c.spec.id, ms: now() - start }));
+        return result;
+      } catch (e) {
+        console.log(JSON.stringify({ ai: 'fail', model: c.spec.id, reason: e instanceof Error ? e.message : String(e) }));
+        if (!(e instanceof ModelError) || e.transient) markFailure(c.spec.id, e, now());
+      }
+    }
+    throw new Error('provider unavailable');
   } };
 }

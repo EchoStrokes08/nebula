@@ -59,3 +59,15 @@ it('salas: invitación solo entre amigos y arranque autoritativo', async () => {
   const stranger=await createUser(db);
   await asUser(db,stranger,async(tx)=>{ expect((await tx.query('select * from focus_rooms')).rows).toHaveLength(0); await expectFailure(tx,"select create_focus_room('Intruso',25,$1::uuid[])",[[ana]],/solo puedes invitar a amigos/); });
 });
+it('solo el servidor puede devolver una consulta de IA fallida', async () => {
+  await db.query('update user_preferences set ai_enabled=true where user_id=$1', [ben]);
+  await db.query("insert into ai_daily_usage(user_id, day, requests) values ($1, current_date, 5) on conflict (user_id, day) do update set requests = 5", [ben]);
+  await asUser(db, ben, async (tx) => {
+    await expectFailure(tx, 'select refund_ai_request($1)', [ben], /permission denied/);
+  });
+  await db.transaction(async (tx) => {
+    await tx.exec('set local role service_role');
+    await tx.query('select refund_ai_request($1)', [ben]);
+  });
+  expect((await db.query<{ requests: number }>('select requests from ai_daily_usage where user_id=$1 and day=current_date', [ben])).rows[0]?.requests).toBe(4);
+});

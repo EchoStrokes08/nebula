@@ -1,0 +1,88 @@
+import { createProvider, resetModelHealth } from '../../../supabase/functions/ai-assist/provider';
+
+const ok = (message: string) => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({ choices: [{ message: { content: JSON.stringify({ message, actions: [] }) } }] }) });
+const fail = (status: number, retry?: string) => ({ ok: false, status, headers: new Headers(retry ? { 'retry-after': retry } : {}), body: null });
+const model = (call: unknown[]) => JSON.parse((call[1] as { body: string }).body).model as string;
+
+// Groq como principal (sin streaming) para simular respuestas completas.
+const env = (extra: Record<string, string> = {}) => (k: string) => ({
+  AI_PROVIDER: 'groq', AI_MODEL: 'listo', AI_API_KEY: 'a', AI_ALTERNATE_MODELS: 'medio, listo',
+  AI_FALLBACK_PROVIDER: 'groq', AI_FALLBACK_MODEL: 'rapido', AI_FALLBACK_API_KEY: 'b', ...extra,
+} as Record<string, string>)[k];
+
+beforeEach(() => resetModelHealth());
+
+describe('respaldo inteligente de modelos', () => {
+  it('usa el más inteligente disponible y baja de nivel solo si falla', async () => {
+    const send = jest.fn().mockResolvedValueOnce(fail(503)).mockResolvedValueOnce(ok('del medio'));
+    await expect(createProvider(env(), send)!.respond('hola', {})).resolves.toMatchObject({ message: 'del medio' });
+    expect(send.mock.calls.map(model)).toEqual(['listo', 'medio']); // sin duplicar «listo»
+  });
+
+  it('salta al instante un modelo saturado mientras descansa y vuelve a él cuando se recupera', async () => {
+    let t = 0;
+    const send = jest.fn(async (_u: string, init: { body: string }) => (JSON.parse(init.body).model === 'listo' && t < 30_000 ? fail(429, '30') : ok(JSON.parse(init.body).model)));
+    const p = createProvider(env(), send as unknown as typeof fetch, () => t)!;
+    await expect(p.respond('1', {})).resolves.toMatchObject({ message: 'medio' });
+    send.mockClear();
+    t = 10_000;
+    await expect(p.respond('2', {})).resolves.toMatchObject({ message: 'medio' });
+    expect(send.mock.calls.map(model)).toEqual(['medio']); // «listo» descansa: ni se intenta
+    t = 31_000;
+    await expect(p.respond('3', {})).resolves.toMatchObject({ message: 'listo' });
+  });
+
+  it('una salida inválida pasa al siguiente sin castigar al modelo', async () => {
+    const bad = { ok: true, status: 200, headers: new Headers(), json: async () => ({ choices: [{ message: { content: 'no es json' } }] }) };
+    const send = jest.fn().mockResolvedValueOnce(bad).mockResolvedValueOnce(ok('medio')).mockResolvedValueOnce(ok('listo'));
+    const p = createProvider(env(), send)!;
+    await expect(p.respond('1', {})).resolves.toMatchObject({ message: 'medio' });
+    await expect(p.respond('2', {})).resolves.toMatchObject({ message: 'listo' });
+  });
+
+  it('no empieza intentos sin tiempo suficiente y falla con un error genérico', async () => {
+    let t = 0;
+    const send = jest.fn(async () => { t += 130_000; return fail(503); });
+    await expect(createProvider(env(), send as unknown as typeof fetch, () => t)!.respond('x', {})).rejects.toThrow('provider unavailable');
+    expect(send).toHaveBeenCalledTimes(1); // tras 130 s quedan 10 s < 15 s mínimos
+  });
+
+  it('si todos descansan, prueba primero el que antes se recupera', async () => {
+    let t = 0;
+    const send = jest.fn(async (_u: string, init: { body: string }) => {
+      const m = JSON.parse(init.body).model;
+      return t === 0 ? fail(429, m === 'rapido' ? '5' : '300') : ok(m);
+    });
+    const p = createProvider(env(), send as unknown as typeof fetch, () => t)!;
+    await expect(p.respond('1', {})).rejects.toThrow();
+    send.mockClear(); t = 1000;
+    await expect(p.respond('2', {})).resolves.toMatchObject({ message: 'rapido' });
+    expect(send.mock.calls.map(model)[0]).toBe('rapido');
+  });
+});
+
+describe('streaming con Google', () => {
+  const googleEnv = (k: string) => ({ AI_PROVIDER: 'google', AI_MODEL: 'hydrogen', AI_API_KEY: 'g', AI_CONNECT_TIMEOUT_MS: '50', AI_FALLBACK_PROVIDER: 'groq', AI_FALLBACK_MODEL: 'rapido', AI_FALLBACK_API_KEY: 'q' } as Record<string, string>)[k];
+  const sse = (text: string) => {
+    const half = Math.floor(text.length / 2);
+    const chunks = [text.slice(0, half), text.slice(half)].map((c) => `data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`);
+    return new ReadableStream<Uint8Array>({ start(ctrl) { for (const c of [...chunks, 'data: [DONE]\n\n']) ctrl.enqueue(new TextEncoder().encode(c)); ctrl.close(); } });
+  };
+
+  it('junta los trozos del flujo y pide stream solo a Google', async () => {
+    const send = jest.fn().mockResolvedValue({ ok: true, status: 200, headers: new Headers(), body: sse(JSON.stringify({ message: 'por trozos', actions: [] })) });
+    await expect(createProvider(googleEnv, send)!.respond('hola', {})).resolves.toMatchObject({ message: 'por trozos' });
+    expect(JSON.parse(send.mock.calls[0]![1].body).stream).toBe(true);
+  });
+
+  it('abandona un modelo en cola que no empieza a responder y usa el siguiente', async () => {
+    const send = jest.fn((_u: string, init: { body: string; signal: AbortSignal }) => {
+      if (JSON.parse(init.body).model === 'hydrogen') return new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('abort'))));
+      return Promise.resolve(ok('rapido'));
+    });
+    const started = Date.now();
+    await expect(createProvider(googleEnv, send as unknown as typeof fetch)!.respond('hola', {})).resolves.toMatchObject({ message: 'rapido' });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(JSON.parse(send.mock.calls[1]![1].body).stream).toBeUndefined();
+  });
+});
