@@ -23,6 +23,7 @@ import { formatNumber } from '@/features/habits/format';
 import { useHabitsData } from '@/features/habits/hooks';
 import { HabitIcon } from '@/features/habits/icons';
 import { useToday } from '@/features/habits/useToday';
+import { deleteGoalMessage } from '@/features/goals/deleteMessage';
 import { TaskRow } from '@/features/tasks/TaskRow';
 import { confirmAction } from '@/lib/confirm';
 import { diffDays } from '@/lib/dates';
@@ -253,7 +254,7 @@ export default function MetaDetalle() {
           variant="danger"
           icon={<Trash2 size={18} color={colors.danger} />}
           onPress={() =>
-            confirmAction('Eliminar meta', `Se borrarán «${goal.title}», sus hitos y su historial. Las tareas y hábitos vinculados se conservan.`, 'Eliminar', () =>
+            confirmAction('Eliminar meta', deleteGoalMessage(goal.title, linkedTasks.length, linkedHabits.length), 'Eliminar', () =>
               run(() => api.deleteGoal(goal.id), () => router.replace('/metas')),
             )
           }
@@ -303,3 +304,4 @@ const styles = StyleSheet.create({
   strike: { textDecorationLine: 'line-through', color: colors.textSecondary },
   flex: { flex: 1 },
 });
+

@@ -88,9 +88,12 @@ const toRow = (g: Partial<GoalInput>) => ({
   ...(g.color !== undefined && { color: g.color }),
 });
 
-export async function createGoal(g: GoalInput & { milestones?: string[] }): Promise<string> {
+export async function createGoal(g: GoalInput & { milestones?: (string | { title: string; dueDate: DayKey | null })[] }): Promise<string> {
   const { id } = unwrapOne(await db().from('goals').insert(toRow(g)).select('id').single());
-  if (g.milestones?.length) unwrap(await db().from('milestones').insert(g.milestones.map((title, i) => ({ goal_id: id, title, sort_order: i }))));
+  if (g.milestones?.length) {
+    const rows = g.milestones.map((m, i) => (typeof m === 'string' ? { goal_id: id, title: m, sort_order: i } : { goal_id: id, title: m.title, due_date: m.dueDate, sort_order: i }));
+    unwrap(await db().from('milestones').insert(rows));
+  }
   return id;
 }
 
@@ -99,8 +102,9 @@ export async function updateGoal(id: string, patch: Partial<GoalInput> & { statu
   unwrap(await db().from('goals').update({ ...toRow(patch), ...(patch.status && { status: patch.status }), ...completed }).eq('id', id));
 }
 
-export async function deleteGoal(id: string) {
-  unwrap(await db().from('goals').delete().eq('id', id));
+/** Borra la meta con sus hitos, tareas y hábitos (y el historial de estos) en una transacción. */
+export async function deleteGoal(id: string): Promise<{ tasks: number; habits: number }> {
+  return unwrap(await db().rpc('delete_goal', { p_goal_id: id })) as { tasks: number; habits: number };
 }
 
 export async function addMilestone(goalId: string, title: string, sortOrder: number, dueDate: DayKey | null = null) {
