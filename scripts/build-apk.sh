@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Genera un APK independiente (JS empaquetado, no necesita Metro) en release/nebula.apk.
-# Usa las variables EXPO_PUBLIC_* de .env. Firmado con la clave de depuración salvo que
-# android/app/build.gradle se configure con un keystore propio (F13-004).
+# Usa las variables EXPO_PUBLIC_* de .env. Firmado con la clave propia de Nebula
+# (plugins/withReleaseSigning.js, ver docs/FIRMA_ANDROID.md).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export JAVA_HOME="${JAVA_HOME:-$HOME/Android/jdk}"

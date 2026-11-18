@@ -646,7 +646,7 @@ Las tareas `AVZ` de F04–F09 pueden posponerse tras H5 sin bloquear el MVP.
 - [!] F13-008 — Actualizaciones automáticas de escritorio (electron-updater) y firma de código en Windows (requiere certificado; sin él, SmartScreen advierte). `P2` `M` `AVZ`
   - Verificación (2026-11-17): **Bloqueado: requiere servidor de publicación de versiones y certificado de firma de Windows.**
 - [-] F13-003 — Proyecto Supabase remoto y despliegue de migraciones/funciones. Migraciones: `npm run db:push` (Supabase CLI vía pooler IPv4; la red local no tiene IPv6). Funciones: pendientes. `P0` `S` `MVP`
-- [!] F13-004 — Build de Android firmado (APK/AAB) con EAS o Gradle local. **Bloqueada: requiere cuenta Expo o Android SDK instalado, y un keystore de firma.** `P1` `M` `MVP`
+- [x] F13-004 — Build de Android firmado (APK/AAB) con EAS o Gradle local. Gradle local con clave propia desde 1.2.4 (`plugins/withReleaseSigning.js`, `docs/FIRMA_ANDROID.md`). `P1` `M` `MVP`
 - [x] F13-005 — Documentación final (README, todos los `docs/`). `P0` `S` `MVP`
   - Verificación (2026-11-17): README, `docs/PRUEBAS.md` y este plan actualizados.
 - [x] F13-006 — Política de privacidad y textos legales (borrador para revisión humana). `P1` `S` `MVP`

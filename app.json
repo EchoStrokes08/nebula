@@ -72,7 +72,8 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "./plugins/withReleaseSigning"
     ],
     "scheme": "nebula",
     "backgroundColor": "#0B0815",

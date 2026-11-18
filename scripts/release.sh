@@ -17,6 +17,9 @@ fi
 git fetch -q --tags origin
 if git rev-parse "v$VERSION" >/dev/null 2>&1; then echo "La etiqueta v$VERSION ya existe."; exit 1; fi
 command -v gh >/dev/null || { echo "Falta GitHub CLI (gh)."; exit 1; }
+# El APK se firma con la clave propia (plugins/withReleaseSigning.js); sin ella no hay release.
+grep -q '^NEBULA_UPLOAD_STORE_FILE=' "$HOME/.gradle/gradle.properties" 2>/dev/null \
+  || { echo "Falta la clave de firma de Nebula en ~/.gradle/gradle.properties (ver docs/FIRMA_ANDROID.md)."; exit 1; }
 [ "$(git branch --show-current)" = main ] || { echo "Ejecuta la release desde la rama main."; exit 1; }
 
 step() { printf '\n\033[1;35m▸ %s\033[0m\n' "$1"; }
