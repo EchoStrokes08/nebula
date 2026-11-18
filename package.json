@@ -89,7 +89,8 @@
     "e2e:build": "npm run build:web && cross-env EXPO_PUBLIC_SUPABASE_URL= EXPO_PUBLIC_SUPABASE_ANON_KEY= EXPO_PUBLIC_DEV_PREVIEW_UI=1 expo export --platform web --output-dir .e2e/preview",
     "e2e": "node --env-file-if-exists=.env node_modules/.bin/playwright test",
     "e2e:shots": "cross-env SHOTS_DIR=docs/screenshots node --env-file-if-exists=.env node_modules/.bin/playwright test e2e/visual.spec.ts e2e/auth.spec.ts",
-    "apk": "bash scripts/build-apk.sh"
+    "apk": "bash scripts/build-apk.sh",
+    "release": "bash scripts/release.sh"
   },
   "private": true,
   "description": "Nebula — productividad personal, inteligente y social",
