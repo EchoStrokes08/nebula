@@ -1,5 +1,8 @@
 # Preparación del lanzamiento
 
+Para Android, seguir la [guía de publicación en Google Play](GOOGLE_PLAY.md),
+con los pendientes de cuenta, firma, privacidad y pruebas de la tienda.
+
 ## Compilar
 
 `npm ci`, `npm run check` y `npm run build:web` validan y exportan el código. La app necesita
