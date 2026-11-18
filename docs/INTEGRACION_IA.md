@@ -76,14 +76,30 @@ metas, eventos y planes. Mover, estimar o priorizar tareas existentes siempre pi
 
 ## Cambiar de proveedor
 
-El proveedor principal es **Google, Gemini 4 Hydrogen** (`AI_PROVIDER=google`, endpoint compatible
-`https://generativelanguage.googleapis.com/v1beta/openai`, `AI_REASONING_EFFORT=low` para responder en
-~15 s), con **Groq** de respaldo mediante `AI_FALLBACK_PROVIDER`, `AI_FALLBACK_BASE_URL`,
-`AI_FALLBACK_MODEL` y `AI_FALLBACK_API_KEY`: si el principal falla, se intenta el respaldo.
-`AI_TIMEOUT_MS` (45000) y `AI_MAX_TOKENS` (8000) son opcionales. `node scripts/test-plan.mjs "<meta>"`
-prueba un plan real con el principal y comprueba sus enlaces sin escribir datos.
+La cadena tiene tres proveedores gratuitos, en este orden (desde 1.2.2):
 
-`AI_PROVIDER=groq` y `google` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
+1. **Groq** (`AI_*`): `openai/gpt-oss-120b` con `AI_REASONING_EFFORT=low` (plan completo en ~6 s) y
+   alternativos `qwen/qwen3.8-27b` y `openai/gpt-oss-20b` (`AI_ALTERNATE_MODELS`). Gratis: 8000
+   tokens/min.
+2. **OpenRouter** (`AI_FALLBACK_*`, `AI_FALLBACK_PROVIDER=openrouter`): modelos `:free`,
+   `baidu/ernie-5.5-flash-preview:free` (~60 s por plan) y alternativos Nemotron 3 Ultra y Gemma 4
+   31B. Gratis: 50 peticiones al día por cuenta; los `:free` dan 429 a menudo.
+3. **Cloudflare Workers AI** (`AI_FALLBACK2_*`, `AI_FALLBACK2_PROVIDER=cloudflare`,
+   `AI_FALLBACK2_BASE_URL=https://api.cloudflare.com/client/v4/accounts/<cuenta>/ai/v1`):
+   `@cf/openai/gpt-oss-120b` y `@cf/qwen/qwen3.8-27b`. El plan gratis (10 000 neuronas/día) no
+   incluye Kimi, GLM 5.3 ni DeepSeek V4 y es lento: sirve para respuestas cortas, los planes largos
+   superan el tiempo de la función.
+
+Cada uno admite `*_ALTERNATE_MODELS`. `AI_TIMEOUT_MS`, `AI_MAX_TOKENS`, `AI_DEADLINE_MS` y
+`AI_CONNECT_TIMEOUT_MS` son opcionales. `node --experimental-strip-types scripts/test-plan.mjs
+[--proveedor AI_FALLBACK_] "<meta>"` prueba un plan real con un solo proveedor y comprueba sus enlaces
+sin escribir datos.
+
+Si todos fallan, la función responde con un `code` que la app traduce: `models_busy`, `models_error`
+(claves o modelos mal configurados), `not_configured`, `daily_limit`, `ai_disabled`, `unauthorized`,
+`invalid_request` o `internal`.
+
+`groq`, `google`, `openrouter` y `cloudflare` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
 `store=false`. `AI_BASE_URL`, `AI_MODEL` y `AI_API_KEY` son secretos del servidor. El endpoint
 requiere HTTPS y el timeout es de 25 segundos. No hay ejecución de código del modelo.
 

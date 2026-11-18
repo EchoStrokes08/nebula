@@ -106,3 +106,21 @@ describe('motivo cuando fallan todos los modelos', () => {
     expect((e as ProviderUnavailable).busy).toBe(false);
   });
 });
+
+describe('tres proveedores', () => {
+  it('baja de Groq a OpenRouter y después a Cloudflare, cada uno con su clave y URL', async () => {
+    const env3 = (k: string) => ({
+      AI_PROVIDER: 'groq', AI_MODEL: 'g', AI_API_KEY: 'kg',
+      AI_FALLBACK_PROVIDER: 'openrouter', AI_FALLBACK_MODEL: 'o', AI_FALLBACK_API_KEY: 'ko',
+      AI_FALLBACK2_PROVIDER: 'cloudflare', AI_FALLBACK2_MODEL: 'c', AI_FALLBACK2_API_KEY: 'kc',
+      AI_FALLBACK2_BASE_URL: 'https://api.cloudflare.com/client/v4/accounts/x/ai/v1',
+    } as Record<string, string>)[k];
+    const send = jest.fn().mockResolvedValueOnce(fail(503)).mockResolvedValueOnce(fail(429)).mockResolvedValueOnce(ok('de cloudflare'));
+    await expect(createProvider(env3, send)!.respond('x', {})).resolves.toMatchObject({ message: 'de cloudflare' });
+    expect(send.mock.calls.map((c) => [c[0], (c[1] as { headers: Record<string, string> }).headers.Authorization])).toEqual([
+      ['https://api.groq.com/openai/v1/chat/completions', 'Bearer kg'],
+      ['https://openrouter.ai/api/v1/chat/completions', 'Bearer ko'],
+      ['https://api.cloudflare.com/client/v4/accounts/x/ai/v1/chat/completions', 'Bearer kc'],
+    ]);
+  });
+});

@@ -8,7 +8,13 @@ const DEFAULT_BASE: Record<string, string> = {
   openai: 'https://api.openai.com/v1',
   groq: 'https://api.groq.com/openai/v1',
   google: 'https://generativelanguage.googleapis.com/v1beta/openai',
+  openrouter: 'https://openrouter.ai/api/v1',
+  // Cloudflare Workers AI necesita el id de cuenta: AI_*_BASE_URL =
+  // https://api.cloudflare.com/client/v4/accounts/<cuenta>/ai/v1
 };
+
+/** Proveedores en orden: principal, respaldo y segundo respaldo. */
+export const PROVIDER_PREFIXES = ['AI_', 'AI_FALLBACK_', 'AI_FALLBACK2_'] as const;
 
 export const instructions = (schema: unknown) => [
   'Eres Nebula, el asistente personal de productividad de la app Nebula (hábitos, tareas, metas, agenda, enfoque y retos).',
@@ -175,8 +181,9 @@ function markFailure(id: string, e: unknown, now: number) {
 
 /**
  * Cadena de modelos con respaldo inteligente. Orden: principal (`AI_*`), modelos alternativos del
- * mismo proveedor y clave (`AI_ALTERNATE_MODELS`, separados por comas), respaldo (`AI_FALLBACK_*`) y
- * sus alternativos (`AI_FALLBACK_ALTERNATE_MODELS`).
+ * mismo proveedor y clave (`AI_ALTERNATE_MODELS`, separados por comas), respaldo (`AI_FALLBACK_*`),
+ * sus alternativos (`AI_FALLBACK_ALTERNATE_MODELS`) y lo mismo con el segundo respaldo
+ * (`AI_FALLBACK2_*`).
  *  - Se salta a los que están descansando; si todos lo están, se prueba el que antes se recupere.
  *  - Presupuesto total de tiempo (`AI_DEADLINE_MS`, 140 s < límite de la Edge Function): cada
  *    intento recibe como mucho lo que queda, y no se empieza uno sin margen suficiente.
@@ -191,7 +198,7 @@ export function createProvider(env: (key: string) => string | undefined, send: t
   const connectMs = Number(env('AI_CONNECT_TIMEOUT_MS') ?? 20000);
   const MIN_ATTEMPT_MS = 15000;
   const specs: ModelSpec[] = [];
-  for (const prefix of ['AI_', 'AI_FALLBACK_'] as const) {
+  for (const prefix of PROVIDER_PREFIXES) {
     const provider = env(`${prefix}PROVIDER`) ?? 'openai';
     const key = env(`${prefix}API_KEY`); const model = env(`${prefix}MODEL`);
     if (!key || !model) continue;
