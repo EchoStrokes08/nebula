@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
+import { DownloadApk } from '@/features/system/DownloadApk';
 
 /** Marco de las pantallas de acceso: una columna en Android, dos en escritorio. */
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
@@ -36,6 +37,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
             {subtitle ? <Text tone="secondary">{subtitle}</Text> : null}
           </View>
           {children}
+          <DownloadApk />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

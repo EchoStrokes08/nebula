@@ -53,3 +53,4 @@ release/
 .e2e/
 test-results/
 playwright-report/
+.pages-dist/

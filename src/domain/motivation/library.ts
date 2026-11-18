@@ -1,3 +1,5 @@
+import { EXTRA } from './extra';
+
 /**
  * Biblioteca de mensajes de Nebula (prompt §11, PDF §4). Originales, en español.
  * Reglas editoriales (REGLAS_NEGOCIO §9): directos y orientados a la acción; sin insultos,
@@ -30,7 +32,7 @@ export interface Message {
 const m = (category: Category, intensity: Intensity, list: string[]): Message[] =>
   list.map((text, i) => ({ id: `${category}-${intensity[0]}${i + 1}`, category, intensity, text }));
 
-export const LIBRARY: Message[] = [
+const BASE: Message[] = [
   // Inicio del día
   ...m('inicio', 'balanced', [
     'El futuro que quieres se construye con lo que decides hacer hoy.',
@@ -193,6 +195,8 @@ export const LIBRARY: Message[] = [
   ]),
   ...m('cierre', 'intense', ['Antes de dormir, una pregunta honesta: ¿hoy avanzaste en lo que dices que importa?']),
 ];
+
+export const LIBRARY: Message[] = [...BASE, ...EXTRA];
 
 /** Lista de comprobación editorial (test): palabras que no pueden aparecer. */
 export const FORBIDDEN = ['inútil', 'fracasado', 'vago', 'perdedor', 'idiota', 'estúpido', 'vergüenza', 'patético', 'deberías avergonzarte'];
