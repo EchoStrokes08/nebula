@@ -1,5 +1,5 @@
 import { queryClient } from '@/data/queryClient';
-import { planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
+import { milestoneOf, planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
 import { addMilestone, createGoal, fetchGoals, linkHabitToGoal, updateGoal } from '@/features/goals/api';
 import { createHabit } from '@/features/habits/api';
 import { createTask } from '@/features/tasks/api';
@@ -13,8 +13,9 @@ export function formatResources(list: PlanResource[]): string {
   return list.map((r) => `• ${r.title}${r.note ? ` (${r.note})` : ''}: ${r.url}`).join('\n');
 }
 
-/** Texto de notas: qué estudiar + enlaces, recortado al límite de la columna sin partir URLs. */
-export function studyNotes(study: string | null, resources: PlanResource[], limit: number): string | null {
+/** Texto de notas: qué estudiar + criterio de terminado + enlaces, sin partir URLs al recortar. */
+export function studyNotes(study: string | null, resources: PlanResource[], limit: number, done: string | null = null): string | null {
+  if (done) study = [study?.trim(), `Terminado cuando: ${done.trim()}`].filter(Boolean).join('\n\n');
   const links = resources.length ? `Recursos:\n${formatResources(resources)}` : '';
   let head = study?.trim() ?? '';
   const sep = head && links ? '\n\n' : '';
@@ -31,7 +32,10 @@ export function studyNotes(study: string | null, resources: PlanResource[], limi
   return out;
 }
 
-export interface PlanStep { key: string; label: string; run: (state: { goalId: string | null }) => Promise<void> }
+/** Lo creado hasta ahora (se conserva entre reintentos): la meta y el id de cada tarea del plan. */
+export interface PlanState { goalId: string | null; taskIds: Record<number, string> }
+export const emptyPlanState = (): PlanState => ({ goalId: null, taskIds: {} });
+export interface PlanStep { key: string; label: string; run: (state: PlanState) => Promise<void> }
 
 /**
  * Pasos independientes para aplicar el plan. La tarjeta los ejecuta en orden y recuerda
@@ -40,7 +44,7 @@ export interface PlanStep { key: string; label: string; run: (state: { goalId: s
 export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): PlanStep[] {
   const plan = planSchema.parse(proposal);
   const today = dayKeyOf(new Date(), tz);
-  const milestones = pick.milestones ? plan.milestones : [];
+  const milestones = pick.milestones ? plan.milestones.map(milestoneOf) : [];
   const steps: PlanStep[] = [{
     key: 'goal',
     label: plan.goalId ? `Actualizar la meta «${plan.goal}»` : `Crear la meta «${plan.goal}»`,
@@ -48,7 +52,7 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
       const extra = plan.resources.length ? `Recursos de estudio:\n${formatResources(plan.resources)}` : '';
       if (!plan.goalId) {
         const description = [plan.why ?? '', extra].filter(Boolean).join('\n\n').slice(0, 2000) || null;
-        s.goalId = await createGoal({ title: plan.goal, kind: 'goal', description, metric: milestones.length ? 'milestones' : 'tasks', visibility: 'private', color: 'violet', targetDate: plan.day as DayKey | null, milestones });
+        s.goalId = await createGoal({ title: plan.goal, kind: 'goal', description, metric: milestones.length ? 'milestones' : 'tasks', visibility: 'private', color: 'violet', targetDate: plan.day as DayKey | null, milestones: milestones.map((m) => ({ title: m.title, dueDate: m.day as DayKey | null })) });
         return;
       }
       const goal = (await fetchGoals()).find((g) => g.id === plan.goalId);
@@ -59,14 +63,16 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
         if (description.length <= 2000) await updateGoal(goal.id, { description });
       }
       const base = goal.milestones.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
-      for (const [i, title] of milestones.entries()) await addMilestone(goal.id, title, base + i);
+      for (const [i, m] of milestones.entries()) await addMilestone(goal.id, m.title, base + i, m.day as DayKey | null);
     },
   }];
   for (const i of pick.tasks) {
     const t = plan.tasks[i];
     if (!t) continue;
     steps.push({ key: `task-${i}`, label: `Tarea «${t.title}»`, run: async (s) => {
-      await createTask({ title: t.title, priority: t.priority, dueDate: t.day as DayKey | null, estimateMinutes: t.minutes, goalId: s.goalId, notes: studyNotes(t.study, t.resources, 5000) });
+      // Solo dependencias hacia tareas ya creadas de este plan (las no elegidas se ignoran).
+      const dependsOn = t.after.filter((j) => j < i).map((j) => s.taskIds[j]).filter((id): id is string => Boolean(id));
+      s.taskIds[i] = await createTask({ title: t.title, priority: t.priority, dueDate: t.day as DayKey | null, estimateMinutes: t.minutes, goalId: s.goalId, notes: studyNotes(t.study, t.resources, 5000, t.done), subtasks: t.steps, dependsOn });
     } });
   }
   for (const i of pick.habits) {

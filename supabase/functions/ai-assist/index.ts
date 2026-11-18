@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { authenticate, body, headers, json } from '../_shared/http.ts';
 import { createProvider } from './provider.ts';
 import { verifyPlanLinks } from './links.ts';
+import { busyFromTasks, schedulePlan, type SchedulePlan } from '../../../src/domain/capture/schedule.ts';
 import { assistantContextSchema, historySchema } from '../../../src/domain/assistant/context.ts';
 
 const legacyContext = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), tasksCompleted: z.number().int().min(0).max(100000), habitRecords: z.number().int().min(0).max(100000), activeDays: z.number().int().min(0).max(7) }).strict();
@@ -26,6 +27,13 @@ Deno.serve(async (req) => {
     const result = await provider.respond(parsed.data.message, parsed.data.context, parsed.data.history ?? []) as { actions: { type: string }[] };
     // Los enlaces de estudio se comprueban aquí: el cliente solo ve los que responden.
     await verifyPlanLinks(result);
+    // Las fechas del plan se ajustan a la semana real de la persona (días activos y carga).
+    const ctx = parsed.data.context;
+    if ('now' in ctx) {
+      for (const a of result.actions) {
+        if (a.type === 'create_plan') schedulePlan(a as unknown as SchedulePlan, { today: ctx.now.day, activeDays: ctx.person.activeDays, busy: busyFromTasks(ctx.tasks) });
+      }
+    }
     return json(result);
   } catch (e) {
     return json({ error: e instanceof Error && e.message === 'unauthorized' ? 'unauthorized' : 'assistant unavailable', fallback: 'captura' }, e instanceof Error && e.message === 'unauthorized' ? 401 : 503);

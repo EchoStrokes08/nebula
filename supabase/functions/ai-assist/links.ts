@@ -7,7 +7,8 @@
 import type { PlanResource } from '../../../src/domain/capture/actions.ts';
 
 const BLOCKED_HOST = /(^|\.)(localhost|local|internal|lan|home\.arpa|intranet|corp)$/i;
-const MAX_LINKS = 40;
+const MAX_LINKS = 150;
+const CONCURRENCY = 16;
 
 export function isPublicHttps(url: string): boolean {
   const m = /^https:\/\/([^/?#:]+)(:\d+)?/i.exec(url);
@@ -43,7 +44,12 @@ export async function verifyPlanLinks(result: { actions: { type: string }[] }, s
   const lists = plans.flatMap((p) => [p, ...p.tasks, ...p.habits]);
   const urls = [...new Set(lists.flatMap((l) => l.resources.map((r) => r.url)))].slice(0, MAX_LINKS);
   if (!urls.length) return 0;
-  const ok = new Map(await Promise.all(urls.map(async (u) => [u, await linkWorks(u, send)] as const)));
+  // Planes grandes traen muchos enlaces: se comprueban en tandas para no saturar la función.
+  const ok = new Map<string, boolean>();
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, urls.length) }, async () => {
+    while (next < urls.length) { const u = urls[next++]!; ok.set(u, await linkWorks(u, send)); }
+  }));
   let dropped = 0;
   for (const l of lists) {
     const kept = l.resources.filter((r) => ok.get(r.url) === true);
