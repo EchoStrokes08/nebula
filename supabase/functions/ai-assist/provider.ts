@@ -14,7 +14,7 @@ const DEFAULT_BASE: Record<string, string> = {
 };
 
 /** Proveedores en orden: principal, respaldo y segundo respaldo. */
-export const PROVIDER_PREFIXES = ['AI_', 'AI_FALLBACK_', 'AI_FALLBACK2_'] as const;
+export const PROVIDER_PREFIXES = ['AI_', 'AI_FALLBACK_', 'AI_FALLBACK2_', 'AI_FALLBACK3_'] as const;
 
 export const instructions = (schema: unknown) => [
   'Eres Nebula, el asistente personal de productividad de la app Nebula (hábitos, tareas, metas, agenda, enfoque y retos).',
@@ -71,7 +71,7 @@ const retryAfter = (r: Response): number | null => {
   return Number.isFinite(at) ? Math.max(0, Math.min(at - Date.now(), 15 * 60 * 1000)) : null;
 };
 
-interface ModelSpec { id: string; provider: string; base: string; model: string; key: string; effort: string | undefined }
+export interface ModelSpec { id: string; provider: string; base: string; model: string; key: string; effort: string | undefined }
 
 /** Lee un flujo SSE de chat/completions y junta el contenido de los deltas. */
 async function readStream(body: ReadableStream<Uint8Array>): Promise<string> {
@@ -191,12 +191,8 @@ function markFailure(id: string, e: unknown, now: number) {
  *  - Elegir rápido: un 503/429 llega en ~1 s; con streaming, un modelo en cola se abandona a los
  *    `AI_CONNECT_TIMEOUT_MS` (20 s) sin esperar a su tiempo total.
  */
-export function createProvider(env: (key: string) => string | undefined, send: typeof fetch = fetch, now: () => number = Date.now): Provider | null {
-  const timeoutMs = Number(env('AI_TIMEOUT_MS') ?? 90000);
-  const maxTokens = Number(env('AI_MAX_TOKENS') ?? 16000);
-  const deadlineMs = Number(env('AI_DEADLINE_MS') ?? 140000);
-  const connectMs = Number(env('AI_CONNECT_TIMEOUT_MS') ?? 20000);
-  const MIN_ATTEMPT_MS = 15000;
+/** Modelos configurados, en orden de preferencia (del más inteligente al más rápido). */
+export function modelSpecs(env: (key: string) => string | undefined): ModelSpec[] {
   const specs: ModelSpec[] = [];
   for (const prefix of PROVIDER_PREFIXES) {
     const provider = env(`${prefix}PROVIDER`) ?? 'openai';
@@ -209,8 +205,33 @@ export function createProvider(env: (key: string) => string | undefined, send: t
       if (!specs.some((s) => s.id === id)) specs.push({ id, provider, base, model: m, key, effort: m === model ? env(`${prefix}REASONING_EFFORT`) : undefined });
     }
   }
+  return specs;
+}
+
+/** Resultado de un intento: `busy` = saturado o con límite; `error` = fallo de otro tipo. */
+export interface Attempt { model: string; outcome: 'ok' | 'busy' | 'error'; ms: number }
+export interface ChainOptions {
+  /** Reordena los ids de modelo (p. ej. según su salud medida); los que no devuelva van al final. */
+  order?: (ids: string[]) => string[];
+  /** Se llama tras cada intento, para aprender del uso real sin gastar consultas extra. */
+  onAttempt?: (attempt: Attempt) => void;
+}
+
+export function createProvider(env: (key: string) => string | undefined, send: typeof fetch = fetch, now: () => number = Date.now, options: ChainOptions = {}): Provider | null {
+  const timeoutMs = Number(env('AI_TIMEOUT_MS') ?? 90000);
+  const maxTokens = Number(env('AI_MAX_TOKENS') ?? 16000);
+  const deadlineMs = Number(env('AI_DEADLINE_MS') ?? 140000);
+  const connectMs = Number(env('AI_CONNECT_TIMEOUT_MS') ?? 20000);
+  const MIN_ATTEMPT_MS = 15000;
+  const specs = modelSpecs(env);
   if (!specs.length) return null;
-  const chain = specs.map((spec) => ({ spec, timeoutMs }));
+  const base = specs.map((spec) => ({ spec, timeoutMs }));
+  let chain = base;
+  if (options.order) {
+    const ranked = options.order(base.map((c) => c.spec.id));
+    const picked = ranked.map((id) => base.find((c) => c.spec.id === id)).filter((c): c is typeof base[number] => !!c);
+    chain = [...new Set([...picked, ...base])];
+  }
   return { async respond(message, context, history = []) {
     const start = now();
     let busy = false; let attempts = 0;
@@ -221,13 +242,18 @@ export function createProvider(env: (key: string) => string | undefined, send: t
       const left = deadlineMs - (now() - start);
       if (left < MIN_ATTEMPT_MS) break;
       attempts += 1;
+      const tried = now();
       try {
         const result = await single(c.spec, Math.min(c.timeoutMs, left - 2000), connectMs, maxTokens, send).respond(message, context, history);
         health.delete(c.spec.id);
+        options.onAttempt?.({ model: c.spec.id, outcome: 'ok', ms: now() - tried });
         console.log(JSON.stringify({ ai: 'ok', model: c.spec.id, ms: now() - start }));
         return result;
       } catch (e) {
         console.log(JSON.stringify({ ai: 'fail', model: c.spec.id, reason: e instanceof Error ? e.message : String(e) }));
+        // Salidas inválidas (descanso 0) no son saturación: el modelo respondió, pero mal.
+        const saturated = e instanceof ModelError && e.transient && e.retryAfterMs !== 0;
+        options.onAttempt?.({ model: c.spec.id, outcome: saturated ? 'busy' : 'error', ms: now() - tried });
         if (!(e instanceof ModelError) || e.transient) { busy = true; markFailure(c.spec.id, e, now()); }
       }
     }

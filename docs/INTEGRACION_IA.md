@@ -76,7 +76,7 @@ metas, eventos y planes. Mover, estimar o priorizar tareas existentes siempre pi
 
 ## Cambiar de proveedor
 
-La cadena tiene tres proveedores gratuitos, en este orden (desde 1.2.2):
+La cadena tiene cuatro proveedores gratuitos; este es su orden de preferencia:
 
 1. **Groq** (`AI_*`): `openai/gpt-oss-120b` con `AI_REASONING_EFFORT=low` (plan completo en ~6 s) y
    alternativos `qwen/qwen3.8-27b` y `openai/gpt-oss-20b` (`AI_ALTERNATE_MODELS`). Gratis: 8000
@@ -84,11 +84,32 @@ La cadena tiene tres proveedores gratuitos, en este orden (desde 1.2.2):
 2. **OpenRouter** (`AI_FALLBACK_*`, `AI_FALLBACK_PROVIDER=openrouter`): modelos `:free`,
    `baidu/ernie-5.5-flash-preview:free` (~60 s por plan) y alternativos Nemotron 3 Ultra y Gemma 4
    31B. Gratis: 50 peticiones al día por cuenta; los `:free` dan 429 a menudo.
-3. **Cloudflare Workers AI** (`AI_FALLBACK2_*`, `AI_FALLBACK2_PROVIDER=cloudflare`,
-   `AI_FALLBACK2_BASE_URL=https://api.cloudflare.com/client/v4/accounts/<cuenta>/ai/v1`):
+3. **NVIDIA** (`AI_FALLBACK2_*`, `AI_FALLBACK2_PROVIDER=nvidia`,
+   `AI_FALLBACK2_BASE_URL=https://integrate.api.nvidia.com/v1`): `nvidia/nemotron-3-ultra-550b-a55b`
+   (respuestas cortas en ~3 s, planes en ~130 s). Kimi K3.1, GLM 5.3 y Mistral Large 4 aparecen en
+   el catálogo pero se quedaban en cola sin responder (2026-11-18).
+4. **Cloudflare Workers AI** (`AI_FALLBACK3_*`, `AI_FALLBACK3_PROVIDER=cloudflare`,
+   `AI_FALLBACK3_BASE_URL=https://api.cloudflare.com/client/v4/accounts/<cuenta>/ai/v1`):
    `@cf/openai/gpt-oss-120b` y `@cf/qwen/qwen3.8-27b`. El plan gratis (10 000 neuronas/día) no
-   incluye Kimi, GLM 5.3 ni DeepSeek V4 y es lento: sirve para respuestas cortas, los planes largos
-   superan el tiempo de la función.
+   incluye Kimi, GLM 5.3 ni DeepSeek V4 y es lento: sirve para respuestas cortas.
+
+### Salud de los modelos (cada 6 horas)
+
+`ai-assist` registra cada intento real (`record_ai_attempt`: bien, saturado o error, y su
+latencia) en `ai_model_health`. Cada 6 horas pg_cron llama a la función `ai-health` (cabecera
+`x-health-secret` = `AI_HEALTH_SECRET`), que evalúa cada modelo:
+
+- con 3 o más intentos reales en la ventana, por esos resultados, sin gastar consultas;
+- si no, con un sondeo barato: un «ping» de 8 tokens como mucho y 20 s de espera; en OpenRouter,
+  su estado público (`/models/<id>/endpoints`), que no gasta ninguna de las 50 consultas diarias.
+
+Los proveedores se revisan en paralelo y los modelos de un mismo proveedor de uno en uno. Después,
+`ai-assist` ordena la cadena: primero los sanos en su orden de preferencia, luego los irregulares
+(menos del 50 % de aciertos) y al final los caídos; las evaluaciones de más de 13 h se ignoran. Encima
+sigue actuando el descanso en memoria de los modelos que acaban de dar 429/5xx.
+
+La URL del proyecto y el secreto del cron viven en Vault (`nebula_project_url` y
+`nebula_ai_health_secret`), no en el repositorio.
 
 Cada uno admite `*_ALTERNATE_MODELS`. `AI_TIMEOUT_MS`, `AI_MAX_TOKENS`, `AI_DEADLINE_MS` y
 `AI_CONNECT_TIMEOUT_MS` son opcionales. `node --experimental-strip-types scripts/test-plan.mjs
@@ -99,7 +120,7 @@ Si todos fallan, la función responde con un `code` que la app traduce: `models_
 (claves o modelos mal configurados), `not_configured`, `daily_limit`, `ai_disabled`, `unauthorized`,
 `invalid_request` o `internal`.
 
-`groq`, `google`, `openrouter` y `cloudflare` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
+`groq`, `google`, `openrouter`, `nvidia` y `cloudflare` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
 `store=false`. `AI_BASE_URL`, `AI_MODEL` y `AI_API_KEY` son secretos del servidor. El endpoint
 requiere HTTPS y el timeout es de 25 segundos. No hay ejecución de código del modelo.
 

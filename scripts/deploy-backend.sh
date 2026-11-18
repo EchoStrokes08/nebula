@@ -9,3 +9,4 @@ npm run db:push
 ./node_modules/.bin/supabase secrets set --project-ref "$NEBULA_SUPABASE_PROJECT_REF" --env-file .env.server.local
 ./node_modules/.bin/supabase functions deploy ai-assist --project-ref "$NEBULA_SUPABASE_PROJECT_REF" --no-verify-jwt
 ./node_modules/.bin/supabase functions deploy account-delete --project-ref "$NEBULA_SUPABASE_PROJECT_REF" --no-verify-jwt
+./node_modules/.bin/supabase functions deploy ai-health --project-ref "$NEBULA_SUPABASE_PROJECT_REF" --no-verify-jwt

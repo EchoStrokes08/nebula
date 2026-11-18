@@ -71,3 +71,17 @@ it('solo el servidor puede devolver una consulta de IA fallida', async () => {
   });
   expect((await db.query<{ requests: number }>('select requests from ai_daily_usage where user_id=$1 and day=current_date', [ben])).rows[0]?.requests).toBe(4);
 });
+it('solo el servidor ve y registra la salud de los modelos de IA', async () => {
+  await asUser(db, ben, async (tx) => {
+    await expectFailure(tx, "select record_ai_attempt('groq:x', 'ok', 100)", [], /permission denied/);
+    await expectFailure(tx, 'select * from ai_model_health', [], /permission denied/);
+  });
+  await db.transaction(async (tx) => {
+    await tx.exec('set local role service_role');
+    await tx.query("select record_ai_attempt('groq:x', 'ok', 100)");
+    await tx.query("select record_ai_attempt('groq:x', 'ok', 300)");
+    await tx.query("select record_ai_attempt('groq:x', 'busy', 900)");
+  });
+  const row = (await db.query<{ ok_count: number; busy_count: number; ms_total: number }>("select ok_count, busy_count, ms_total::int as ms_total from ai_model_health where model='groq:x'")).rows[0];
+  expect(row).toEqual({ ok_count: 2, busy_count: 1, ms_total: 400 });
+});
