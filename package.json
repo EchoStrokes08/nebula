@@ -81,6 +81,8 @@
     "dist:linux": "npm run build:desktop && electron-builder --linux AppImage --config.electronDist=node_modules/electron/dist --publish never",
     "dist:win": "npm run build:desktop && electron-builder --win nsis --config.electronDist=node_modules/electron/dist --publish never",
     "dist:linux:deb": "npm run build:desktop && electron-builder --linux deb --config.electronDist=node_modules/electron/dist --publish never",
+    "install:linux": "bash scripts/install-linux.sh",
+    "uninstall:linux": "bash scripts/install-linux.sh --desinstalar",
     "db:push": "bash scripts/db-push.sh",
     "configure:groq": "python3 scripts/configure-groq.py",
     "deploy:backend": "bash scripts/deploy-backend.sh",
@@ -122,7 +124,8 @@
       "mimeTypes": [
         "x-scheme-handler/nebula"
       ],
-      "syncDesktopName": true
+      "syncDesktopName": true,
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "win": {
       "target": [

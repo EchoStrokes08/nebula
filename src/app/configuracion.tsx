@@ -20,7 +20,7 @@ import { notifications } from '@/platform/notifications';
 import { confirmAction } from '@/lib/confirm';
 import { DesktopSettings } from '@/features/profile/DesktopSettings';
 import { SkyPicker } from '@/features/appearance/SkyPicker';
-import { DownloadApk } from '@/features/system/DownloadApk';
+import { DownloadApps } from '@/features/system/DownloadApps';
 import { spacing } from '@/design/tokens';
 
 export default function Configuracion() {
@@ -92,7 +92,7 @@ export default function Configuracion() {
     <Text variant="title2">Apariencia</Text>
     <Text tone="secondary">Elige el cielo de fondo. En automático cambia con la hora del día y cada día dibuja una galaxia distinta.</Text>
     <SkyPicker />
-    <DownloadApk />
+    <DownloadApps />
     <DesktopSettings />
     <Text variant="title2">Tus datos</Text>
     <Button label="Exportar mis datos (JSON)" variant="secondary" loading={busy} onPress={() => void act(exportMyData, 'Exportación preparada.')} />
