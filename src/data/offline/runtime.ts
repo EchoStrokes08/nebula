@@ -109,8 +109,12 @@ export function startOfflineRuntime() {
     });
     void syncPendingLogs();
   };
+  // En web NetInfo comprueba internet con `HEAD /`, que en GitHub Pages (servida en /nebula/) da 404
+  // y marcaba «Sin conexión» con internet. Allí basta `navigator.onLine` (isConnected); si Supabase
+  // no responde, ya lo dicen los errores de cada consulta.
+  if (Platform.OS === 'web') NetInfo.configure({ reachabilityShouldRun: () => false });
   const net = NetInfo.addEventListener((state) => {
-    const online = state.isConnected !== false && state.isInternetReachable !== false;
+    const online = state.isConnected !== false && (Platform.OS === 'web' || state.isInternetReachable !== false);
     onlineManager.setOnline(online);
     useConnection.setState({ online });
     if (online) void syncPendingLogs();

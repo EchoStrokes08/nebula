@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react-native';
+import { CalendarDays, Repeat, Sparkles, Timer, Trophy } from 'lucide-react-native';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,6 +28,10 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
             <Brand />
             <Text variant="display">Convierte intenciones en resultados.</Text>
             <Text tone="secondary">Hábitos, agenda, enfoque y retos con amigos, en un solo lugar.</Text>
+            <View style={styles.features}>
+              {FEATURES.map((f) => <Feature key={f.label} {...f} />)}
+            </View>
+            <View style={styles.asideDownloads}><DownloadApps /></View>
           </View>
         ) : null}
         <View style={[styles.card, wide && styles.cardWide]}>
@@ -37,10 +43,27 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
             {subtitle ? <Text tone="secondary">{subtitle}</Text> : null}
           </View>
           {children}
-          <DownloadApps />
+          {!wide ? <DownloadApps /> : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  );
+}
+
+const FEATURES: { icon: LucideIcon; label: string }[] = [
+  { icon: Repeat, label: 'Hábitos con rachas' },
+  { icon: CalendarDays, label: 'Agenda y tareas' },
+  { icon: Timer, label: 'Modo enfoque' },
+  { icon: Trophy, label: 'Retos con amigos' },
+  { icon: Sparkles, label: 'Asistente con IA' },
+];
+
+function Feature({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
+  return (
+    <View style={styles.feature}>
+      <Icon size={15} color={colors.accentSoft} />
+      <Text variant="callout">{label}</Text>
+    </View>
   );
 }
 
@@ -57,7 +80,13 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: spacing[5], justifyContent: 'center' },
   scrollWide: { flexDirection: 'row', alignItems: 'center', gap: spacing[16], paddingHorizontal: spacing[16] },
-  aside: { flex: 1, maxWidth: 440, gap: spacing[4] },
+  aside: { flex: 1, maxWidth: 480, gap: spacing[4] },
+  features: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  feature: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2], paddingHorizontal: spacing[3],
+    borderRadius: radius.pill, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.border,
+  },
+  asideDownloads: { marginTop: spacing[4], maxWidth: 420 },
   card: { gap: spacing[6], width: '100%', maxWidth: 440, alignSelf: 'center' },
   cardWide: {
     padding: spacing[8],

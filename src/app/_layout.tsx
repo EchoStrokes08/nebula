@@ -143,6 +143,6 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
   transparent: { backgroundColor: 'transparent' },
 });

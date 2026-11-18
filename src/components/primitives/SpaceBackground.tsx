@@ -209,7 +209,7 @@ export const SpaceBackground = memo(function SpaceBackground() {
   const field = wide ? FIELD : FIELD.slice(0, 100);
 
   return (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.sky[2] }]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.sky[2], overflow: 'hidden' }]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
       <Animated.View key={theme.id} entering={reduced ? undefined : FadeIn.duration(1600)} style={StyleSheet.absoluteFill}>
         <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
           <Defs>
