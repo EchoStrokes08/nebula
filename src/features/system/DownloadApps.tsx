@@ -18,7 +18,7 @@ const TARGETS: Record<Target, TargetInfo> = {
     icon: Smartphone,
     name: 'Android',
     detail: 'APK · 35 MB',
-    hint: 'Ábrelo en el móvil y permite instalar apps de origen desconocido. ¿Tenías la 1.2.3 o anterior? Desinstálala antes: cambió la firma de la app (tus datos vuelven al iniciar sesión).',
+    hint: 'Ábrelo en el móvil y permite instalar apps de origen desconocido. ¿Tenías la 1.2.3 o anterior? Desinstálala antes, también del segundo espacio o espacio de seguridad si usas uno: cambió la firma de la app (tus datos vuelven al iniciar sesión).',
   },
   windows: {
     url: windowsInstallerUrl,

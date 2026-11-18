@@ -21,6 +21,10 @@ Android no deja actualizar una app con otra firma: quien tenga la 1.2.3 o anteri
 desinstalar Nebula una vez e instalar la 1.2.4 desde la web. Los datos sincronizados se recuperan
 al iniciar sesión; lo que no se hubiera sincronizado se pierde.
 
+Ojo con los Xiaomi: si Nebula sigue en el «segundo espacio» o «security space» (otro usuario de
+Android), el instalador sigue diciendo «conflicto con un paquete ya presente». `adb uninstall
+app.nebula.productividad` la quita de todos los usuarios.
+
 ## Que Play Protect conozca la app
 
 El aviso «App desconocida / Analizar la app» solo desaparece del todo si Google conoce el paquete
