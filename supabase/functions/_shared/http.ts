@@ -11,6 +11,6 @@ export async function authenticate(req: Request) {
 }
 export async function body(req: Request) {
   const text = await req.text();
-  if (text.length > 12000) throw new Error('body too large');
+  if (text.length > 64000) throw new Error('body too large');
   return JSON.parse(text);
 }

@@ -29,7 +29,7 @@ Fuente de verdad: `src/design/tokens.ts`. Contraste verificado por `src/design/c
 | `text` / `textSecondary` / `textTertiary` | `#F7F4FF` / `#B5AAC8` / `#8A7FA0` | Jerarquía de texto |
 | `info` / `success` / `warning` / `danger` | cian / verde / ámbar / rojo moderado | Estados; nunca decorativos |
 
-**Tipografía (Inter):** `display 34`, `title1 26`, `title2 20`, `title3 17`, `body 15`, `callout 14`,
+**Tipografía (Sora para titulares y cifras, Plus Jakarta Sans para texto):** `hero 40`, `display 34`, `title1 26`, `title2 20`, `title3 16`, `body 15`, `callout 14`,
 `caption 12`, `overline 11 (mayúsculas, +1.2)`, `metric 28 (cifras tabulares)`. Escalado del
 sistema hasta ×2.
 
@@ -176,3 +176,12 @@ errores, validaciones, confirmaciones, adaptación, accesibilidad cuando difiere
 
 Cada pantalla nueva se captura con `npm run desktop:shots` a 1280×800 (escritorio) y 390×844
 (Android) y se revisa contra este documento antes de marcar su tarea como completada.
+
+## Fondo dinámico (cielos)
+
+El fondo (`SpaceBackground`) cambia con la hora local: **Amanecer** (6–10 h), **Día** (10–18 h),
+**Atardecer** (18–21 h) y **Noche**; además existe **Boreal** como cielo fijo. Cada día
+`dailyLayout()` compone una galaxia distinta (brazos, giro, posición y ángulo) de forma
+determinista. Con «Fondo animado» la galaxia gira en su plano (una vuelta cada 15 min), las
+nebulosas derivan y cruza alguna estrella fugaz; con «reducir movimiento» todo queda estático.
+La elección se guarda por dispositivo en Configuración → Apariencia.

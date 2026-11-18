@@ -1,7 +1,10 @@
-import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';
-import { Inter_500Medium } from '@expo-google-fonts/inter/500Medium';
-import { Inter_600SemiBold } from '@expo-google-fonts/inter/600SemiBold';
-import { Inter_700Bold } from '@expo-google-fonts/inter/700Bold';
+import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
+import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
+import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
+import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
+import { Sora_300Light } from '@expo-google-fonts/sora/300Light';
+import { Sora_600SemiBold } from '@expo-google-fonts/sora/600SemiBold';
+import { Sora_700Bold } from '@expo-google-fonts/sora/700Bold';
 import { useFonts } from 'expo-font';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { router, Stack, ThemeProvider } from 'expo-router';
@@ -32,7 +35,10 @@ startAuthListener();
 
 export default function RootLayout() {
   const reducedMotion = useReducedMotion();
-  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold });
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold,
+    Sora_300Light, Sora_600SemiBold, Sora_700Bold,
+  });
   const status = useAuth((s) => s.status);
   const onboarded = useAuth((s) => s.onboarded);
   const recovery = useAuth((s) => s.recovery);

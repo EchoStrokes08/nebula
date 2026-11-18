@@ -15,6 +15,9 @@ export interface Preferences {
   aiEnabled: boolean;
   weeklyReviewDay: number | null;
   onboardingGoals: string[];
+  aiAbout: string;
+  aiTone: 'cercano' | 'directo' | 'motivador' | 'tranquilo';
+  aiShareJournal: boolean;
 }
 
 const map = (r: Record<string, unknown>): Preferences => ({
@@ -29,6 +32,9 @@ const map = (r: Record<string, unknown>): Preferences => ({
   aiEnabled: r.ai_enabled as boolean,
   weeklyReviewDay: (r.weekly_review_day as number | null) ?? null,
   onboardingGoals: (r.onboarding_goals as string[]) ?? [],
+  aiAbout: (r.ai_about as string | undefined) ?? '',
+  aiTone: (r.ai_tone as Preferences['aiTone'] | undefined) ?? 'cercano',
+  aiShareJournal: (r.ai_share_journal as boolean | undefined) ?? false,
 });
 
 export function usePreferences() {

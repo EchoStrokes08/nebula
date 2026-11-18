@@ -28,19 +28,30 @@ publica `ai-assist` y `account-delete`. La autenticación se valida dentro de ca
 
 ## Datos y acciones
 
-Se envían la petición que escribe el usuario y un resumen numérico de siete días: fechas,
-tareas completadas, número de registros de hábitos y días activos. No se incluyen emails,
-IDs de amigos, textos del diario, títulos de tareas existentes ni tokens de sesión del cliente.
-La conversación permanece en memoria de la pantalla; Nebula no la guarda en tablas.
-El proveedor procesa el contenido conforme a sus propias condiciones.
+Desde 2026-11-17 el asistente recibe un **contexto completo y acotado** (`src/domain/assistant/context.ts`,
+mismo esquema Zod en cliente y servidor), construido por `buildAssistantContext()`:
 
+- `now`: fecha, hora local, día de la semana y franja del día.
+- `person`: nombre de pila, el texto «Sobre mí» que escribe la persona (`ai_about`), el tono
+  preferido (`ai_tone`: cercano, directo, motivador o tranquilo), intereses, objetivos del
+  onboarding, días activos, franjas de enfoque e intensidad motivacional.
+- `week`: últimos 7 días, por día: hábitos cumplidos/programados, tareas hechas y minutos de enfoque.
+- `habits` (≤25): tipo, objetivo, estado de hoy, racha actual y mejor, constancia a 30 días y si cuesta.
+- `tasks` (≤30 abiertas, con ID real): prioridad, vencimiento, estimación, aplazamientos, bloqueo,
+  meta y subtareas. Las notas de las tareas **no** se envían. `recentlyDone` (≤12 títulos).
+- `goals` (≤12 activas): progreso, fecha objetivo, hitos y siguiente hito.
+- `agenda` (≤30 eventos de los próximos 7 días), `challenges` propios (≤8) e `insights` de la app.
+- `journal` (≤4 entradas recientes) **solo** si se activa «Compartir mi diario» (`ai_share_journal`).
+- `history`: hasta 8 turnos previos de la conversación, para mantener el hilo.
+
+Nunca se envían emails, datos de amigos ni tokens. La conversación sigue en memoria de la pantalla.
 Cliente y servidor validan el mismo esquema Zod. Las propuestas admiten crear tareas,
 hábitos, metas con hitos y eventos, y modificar fecha, estimación o prioridad de una tarea
 identificada. Cada tarjeta exige **Confirmar y aplicar**. Descartar no escribe datos.
 La reprogramación comprueba solapamientos con la agenda antes de guardar.
 
-Los IDs de tareas existentes no se envían en el contexto automático: el asistente debe pedir
-más información antes de proponer modificaciones. La planificación diaria completa se
+Como el contexto incluye los IDs de las tareas abiertas, el asistente puede proponer mover,
+estimar o priorizar tareas existentes; el prompt le prohíbe usar IDs que no estén en el contexto. La planificación diaria completa se
 realiza desde `Planificar`, que usa el planificador determinista. Las recomendaciones de
 sobrecarga y constancia son heurísticas explicadas; no son predicciones clínicas.
 

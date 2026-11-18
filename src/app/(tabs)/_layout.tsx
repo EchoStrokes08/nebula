@@ -8,6 +8,7 @@ import { NavItem } from '@/components/navigation/NavItem';
 import { QuickCreate } from '@/components/navigation/QuickCreate';
 import { navLayoutFor, sections } from '@/components/navigation/sections';
 import { Text } from '@/components/primitives/Text';
+import { glassBlur } from '@/components/primitives/Card';
 import { QuickActions } from '@/platform/QuickActions';
 import { colors, hitTarget, spacing } from '@/design/tokens';
 import { useSocialRealtime } from '@/features/notifications/realtime';
@@ -50,7 +51,7 @@ export default function TabsLayout() {
         <TabList style={styles.sidebar} role="navigation" aria-label="Secciones">
           <View style={styles.brand}>
             <View style={styles.brandMark} />
-            <Text variant="title3">Nebula</Text>
+            <Text variant="title2" style={styles.brandText}>Nebula</Text>
           </View>
           <QuickCreate layout="sidebar" />
           {sections.map((s, i) => (
@@ -65,7 +66,7 @@ export default function TabsLayout() {
       {!sidebar ? <View pointerEvents="box-none" style={[styles.fabLayer, { bottom: hitTarget + 8 + Math.max(insets.bottom, spacing[2]) + spacing[4] }]}><QuickCreate layout="floating" /></View> : null}
       {!sidebar ? (
         <TabList
-          style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing[2]) }]}
+          style={[styles.bottomBar, glassBlur, { marginBottom: Math.max(insets.bottom, spacing[2]) }]}
           accessibilityRole="tablist"
         >
           {sections.map((s) => (
@@ -103,18 +104,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing[5],
   },
   brandMark: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: colors.accent,
     shadowColor: colors.accent,
     shadowOpacity: 0.8,
     shadowRadius: 10,
   },
+  brandText: { letterSpacing: -0.6 },
   bottomBar: {
     flexDirection: 'row',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    backgroundColor: 'rgba(16, 13, 28, 0.94)',
+    marginHorizontal: spacing[3],
+    paddingHorizontal: spacing[1],
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: 'rgba(20, 15, 36, 0.9)',
+    shadowColor: '#000',
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
 });

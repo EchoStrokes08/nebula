@@ -3,7 +3,10 @@ import { router } from 'expo-router';
 import { ArrowLeft, Sparkles } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 
 import { navLayoutFor } from '@/components/navigation/sections';
 import { Text } from '@/components/primitives/Text';
@@ -27,6 +30,7 @@ export function Screen({ title, overline, subtitle, trailing, children, back, wi
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const desktop = navLayoutFor(width) === 'sidebar';
+  const reduced = useReducedMotion();
   return (
     <ScrollView
       style={styles.flex}
@@ -51,7 +55,7 @@ export function Screen({ title, overline, subtitle, trailing, children, back, wi
           <Text variant="callout" tone="secondary">{back.label ?? 'Volver'}</Text>
         </Pressable>
       ) : null}
-      <View style={styles.header}>
+      <Animated.View entering={reduced ? undefined : FadeInDown.duration(380)} style={styles.header}>
         <View style={styles.titleBox}>
           {overline ? (
             <View style={styles.pill}>
@@ -68,7 +72,7 @@ export function Screen({ title, overline, subtitle, trailing, children, back, wi
           {subtitle ? <Text variant="callout" tone="secondary" style={styles.subtitle}>{subtitle}</Text> : null}
         </View>
         {trailing}
-      </View>
+      </Animated.View>
       {children}
     </ScrollView>
   );

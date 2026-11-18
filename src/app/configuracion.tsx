@@ -19,6 +19,7 @@ import { resetReminderSignature } from '@/features/notifications/useReminderSync
 import { notifications } from '@/platform/notifications';
 import { confirmAction } from '@/lib/confirm';
 import { DesktopSettings } from '@/features/profile/DesktopSettings';
+import { SkyPicker } from '@/features/appearance/SkyPicker';
 import { spacing } from '@/design/tokens';
 
 export default function Configuracion() {
@@ -83,10 +84,13 @@ export default function Configuracion() {
       <Text variant="title2">Estilo motivacional</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>{([{ v: 'balanced', l: 'Equilibrado' }, { v: 'demanding', l: 'Exigente' }, { v: 'intense', l: 'Intenso' }] as const).map((v) => <Chip key={v.v} label={v.l} selected={prefs.data!.motivationIntensity === v.v} role="radio" onToggle={() => update.mutate({ motivation_intensity: v.v })} />)}</View>
       <Text variant="title2">Inteligencia artificial</Text>
-      <Text tone="secondary">Con tu autorización, el asistente envía tu petición y un resumen numérico de tu actividad al proveedor configurado. No envía tu diario, correos ni actividad de amigos. Las acciones requieren tu confirmación.</Text>
+      <Text tone="secondary">Con tu autorización, el asistente envía tu petición y un resumen de tu actividad (hábitos, tareas, metas, agenda y lo que escribas en «Sobre mí») al proveedor configurado. Solo envía tu diario si lo activas en el asistente. Nunca correos ni actividad de amigos. Las acciones requieren tu confirmación.</Text>
       <Switch accessibilityLabel="Permitir asistente de IA" value={prefs.data.aiEnabled} disabled={update.isPending} onValueChange={(value) => update.mutate({ ai_enabled: value })} />
     </> : null}
     {update.isError ? <Text tone="danger">No se guardó el cambio. Reintenta.</Text> : null}
+    <Text variant="title2">Apariencia</Text>
+    <Text tone="secondary">Elige el cielo de fondo. En automático cambia con la hora del día y cada día dibuja una galaxia distinta.</Text>
+    <SkyPicker />
     <DesktopSettings />
     <Text variant="title2">Tus datos</Text>
     <Button label="Exportar mis datos (JSON)" variant="secondary" loading={busy} onPress={() => void act(exportMyData, 'Exportación preparada.')} />

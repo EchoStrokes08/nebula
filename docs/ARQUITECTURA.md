@@ -124,7 +124,7 @@ Ver `PRUEBAS.md`. Dos proyectos Jest: `app` (jest-expo, dominio y componentes) y
 | ADR-004 | Puntuación de retos en SQL `security definer` | Cálculo en cliente | Integridad: el cliente no decide resultados |
 | ADR-005 | PGlite para pruebas de BD | Docker + `supabase start` | Docker no disponible; PGlite ejecuta Postgres real (WASM) |
 | ADR-006 | Gráficos y fondos con `react-native-svg` | victory-native/Skia | Menos dependencias nativas, control estético total |
-| ADR-007 | Inter como tipografía | Manrope | Cifras tabulares y legibilidad en tamaños pequeños; Manrope queda descartada para no mezclar familias |
+| ADR-007 | Sora (titulares) + Plus Jakarta Sans (texto) | Inter | Revisado el 2026-11-17: Inter resultaba genérica; Sora da personalidad a títulos y cifras y Plus Jakarta Sans mantiene la legibilidad en tamaños pequeños |
 | ADR-008 | Iconos `lucide-react-native` | SF Symbols/Material | Lineales, consistentes en todas las plataformas |
 | ADR-009 | El build web (react-native-web) es la UI de escritorio y el objetivo de E2E | Solo nativo | Una UI para Android y PC; Playwright sin emulador |
 | ADR-011 | **Plataformas: Android + Windows + Linux.** Escritorio con Electron sobre el export web de Expo | Tauri (sin Rust; WebKitGTK en Linux difiere de WebView2), React Native Windows (sin Linux), Flutter (reescritura) | Mismo Chromium en Windows y Linux; compilable y verificable aquí; APIs nativas de notificación, bandeja, `safeStorage` y atajos |

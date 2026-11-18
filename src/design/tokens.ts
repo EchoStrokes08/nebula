@@ -101,31 +101,39 @@ export const spacing = {
 } as const;
 
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 22,
+  sm: 10,
+  md: 14,
+  lg: 18,
+  xl: 24,
   pill: 999,
 } as const;
 
+/**
+ * Plus Jakarta Sans para lectura (geométrica, cálida y muy legible en tamaños pequeños) y Sora para
+ * titulares y cifras: le da a Nebula una voz propia, redondeada y algo «espacial».
+ */
 export const fontFamily = {
-  regular: 'Inter_400Regular',
-  medium: 'Inter_500Medium',
-  semibold: 'Inter_600SemiBold',
-  bold: 'Inter_700Bold',
+  regular: 'PlusJakartaSans_400Regular',
+  medium: 'PlusJakartaSans_500Medium',
+  semibold: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+  display: 'Sora_600SemiBold',
+  displayBold: 'Sora_700Bold',
+  displayLight: 'Sora_300Light',
 } as const;
 
 export const typography = {
-  display: { fontFamily: fontFamily.semibold, fontSize: 34, lineHeight: 40, letterSpacing: -0.8 },
-  title1: { fontFamily: fontFamily.semibold, fontSize: 26, lineHeight: 32, letterSpacing: -0.5 },
-  title2: { fontFamily: fontFamily.semibold, fontSize: 20, lineHeight: 26, letterSpacing: -0.3 },
-  title3: { fontFamily: fontFamily.semibold, fontSize: 17, lineHeight: 22, letterSpacing: -0.2 },
+  hero: { fontFamily: fontFamily.displayLight, fontSize: 40, lineHeight: 46, letterSpacing: -1.2 },
+  display: { fontFamily: fontFamily.displayBold, fontSize: 34, lineHeight: 40, letterSpacing: -1 },
+  title1: { fontFamily: fontFamily.display, fontSize: 26, lineHeight: 32, letterSpacing: -0.6 },
+  title2: { fontFamily: fontFamily.display, fontSize: 20, lineHeight: 26, letterSpacing: -0.4 },
+  title3: { fontFamily: fontFamily.display, fontSize: 16, lineHeight: 22, letterSpacing: -0.2 },
   body: { fontFamily: fontFamily.regular, fontSize: 15, lineHeight: 22, letterSpacing: 0 },
   bodyStrong: { fontFamily: fontFamily.medium, fontSize: 15, lineHeight: 22, letterSpacing: 0 },
   callout: { fontFamily: fontFamily.regular, fontSize: 14, lineHeight: 20, letterSpacing: 0 },
   caption: { fontFamily: fontFamily.medium, fontSize: 12, lineHeight: 16, letterSpacing: 0.1 },
-  overline: { fontFamily: fontFamily.semibold, fontSize: 11, lineHeight: 14, letterSpacing: 1.2 },
-  metric: { fontFamily: fontFamily.semibold, fontSize: 28, lineHeight: 32, letterSpacing: -0.6 },
+  overline: { fontFamily: fontFamily.bold, fontSize: 11, lineHeight: 14, letterSpacing: 1.4 },
+  metric: { fontFamily: fontFamily.display, fontSize: 28, lineHeight: 32, letterSpacing: -0.8 },
 } as const;
 export type TypographyVariant = keyof typeof typography;
 
@@ -156,6 +164,7 @@ export const elevation = {
 
 export const gradients = {
   accent: [palette.violet500, palette.violet400] as const,
+  button: ['#7A4DE6', '#9B6BFF', '#B86BE0'] as const,
   ambient: ['rgba(128, 85, 232, 0.22)', 'rgba(128, 85, 232, 0)'] as const,
   space: [palette.space950, palette.space900, palette.space950] as const,
   card: ['rgba(46, 34, 76, 0.82)', 'rgba(20, 15, 36, 0.86)'] as const,

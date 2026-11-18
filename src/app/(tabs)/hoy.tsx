@@ -21,12 +21,23 @@ import { useTasks } from '@/features/tasks/hooks';
 import { TaskRow } from '@/features/tasks/TaskRow';
 import { analyzeDag } from '@/domain/tasks/dag';
 import { SkeletonList } from '@/components/feedback/Skeleton';
+import { QuickActionsRow } from '@/features/home/QuickActionsRow';
+import { useMyProfile } from '@/features/profile/useMyProfile';
+
+function greeting(hour: number) {
+  if (hour < 6) return 'Buenas noches';
+  if (hour < 13) return 'Buenos días';
+  if (hour < 21) return 'Buenas tardes';
+  return 'Buenas noches';
+}
 
 /** Fecha del día civil del usuario (misma zona que el resto de cálculos). */
 const dayLabel = (day: string) => new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`));
 
 export default function HoyScreen() {
   const { summaries, today, isLoading, error, refetch } = useHabitSummaries();
+  const firstName = useMyProfile().data?.display_name?.split(' ')[0];
+  const hello = `${greeting(new Date().getHours())}${firstName ? `, ${firstName}` : ''}`;
   const forToday = (summaries ?? []).filter(isForToday);
   const pending = forToday.filter((s) => s.current.status !== 'met');
   const done = forToday.length - pending.length;
@@ -45,7 +56,7 @@ export default function HoyScreen() {
   return (
     <Screen
       title="Hoy"
-      subtitle="Lo importante de tu día, de un vistazo."
+      subtitle={`${hello}. Lo importante de tu día, de un vistazo.`}
       overline={dayLabel(today)}
       trailing={<Button label="Hábito" variant="secondary" icon={<Plus size={18} color={colors.text} />} onPress={() => router.push('/habito/nuevo')} />}
     >
@@ -66,7 +77,7 @@ export default function HoyScreen() {
       ) : null}
       <MotivationLine moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       <NotificationPrompt />
-      <Button label="Capturar una idea" variant="secondary" onPress={() => router.push('/captura')} />
+      <QuickActionsRow />
       <GoalsShortcut />
       {recovery.map((s) => (
         <View key={s.habit.id} style={styles.recovery} accessibilityRole="summary">

@@ -1,9 +1,10 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
 import { platformHaptics } from '@/platform/haptics';
 import { Text } from '@/components/primitives/Text';
-import { colors, hitTarget, radius, spacing } from '@/design/tokens';
+import { colors, gradients, hitTarget, radius, spacing } from '@/design/tokens';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
 
@@ -52,15 +53,22 @@ export function Button({ label, variant = 'primary', loading, icon, fullWidth, d
         variant === 'secondary' && styles.bordered,
         { backgroundColor: state.pressed || state.hovered ? bgPressed[variant] : bg[variant] },
         inactive && styles.disabled,
+        variant === 'primary' && styles.glow,
+        variant === 'primary' && { backgroundColor: 'transparent' },
         state.focused && Platform.OS === 'web' && styles.focus,
       ]}
     >
+      {(state: { pressed: boolean; hovered?: boolean }) => (<>
+      {variant === 'primary' ? (
+        <LinearGradient colors={state.pressed ? [colors.accentPressed, colors.accent] : gradients.button} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, styles.fill, state.hovered && styles.hovered]} />
+      ) : null}
       <View style={styles.content}>
         {loading ? <ActivityIndicator size="small" color={fg[variant]} /> : icon}
         <Text variant="bodyStrong" style={{ color: fg[variant] }}>
           {label}
         </Text>
       </View>
+      </>)}
     </Pressable>
   );
 }
@@ -70,6 +78,7 @@ const styles = StyleSheet.create({
     minHeight: hitTarget + 4,
     paddingHorizontal: spacing[5],
     borderRadius: radius.md,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -77,5 +86,8 @@ const styles = StyleSheet.create({
   bordered: { borderWidth: 1, borderColor: colors.borderStrong },
   content: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   disabled: { opacity: 0.5 },
+  fill: { borderRadius: radius.md },
+  hovered: { opacity: 0.88 },
+  glow: { shadowColor: colors.accent, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   focus: { outlineColor: colors.borderFocus, outlineWidth: 2, outlineStyle: 'solid', outlineOffset: 2 } as object,
 });
