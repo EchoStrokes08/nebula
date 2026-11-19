@@ -95,9 +95,16 @@ const toRow = (t: Partial<TaskInput>) => ({
 
 export async function createTask(t: TaskInput & { subtasks?: string[]; tagNames?: string[]; dependsOn?: string[] }): Promise<string> {
   const { id } = unwrapOne(await db().from('tasks').insert({ ...toRow(t), sort_order: Date.now() / 1000 }).select('id').single());
-  if (t.subtasks?.length) unwrap(await db().from('subtasks').insert(t.subtasks.map((title, i) => ({ task_id: id, title, sort_order: i }))));
-  if (t.tagNames?.length) await setTaskTags(id, t.tagNames);
-  if (t.dependsOn?.length) unwrap(await db().from('task_dependencies').insert(t.dependsOn.map((d) => ({ task_id: id, depends_on: d }))));
+  try {
+    if (t.subtasks?.length) unwrap(await db().from('subtasks').insert(t.subtasks.map((title, i) => ({ task_id: id, title, sort_order: i }))));
+    if (t.tagNames?.length) await setTaskTags(id, t.tagNames);
+    const deps = [...new Set(t.dependsOn ?? [])].filter((d) => d !== id);
+    if (deps.length) unwrap(await db().from('task_dependencies').insert(deps.map((d) => ({ task_id: id, depends_on: d }))));
+  } catch (e) {
+    // Sin la tarea a medias: un reintento la crearía otra vez y quedaría duplicada.
+    await db().from('tasks').delete().eq('id', id);
+    throw e;
+  }
   return id;
 }
 

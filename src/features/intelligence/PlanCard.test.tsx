@@ -21,12 +21,12 @@ it('muestra tareas, hábitos y enlaces y no escribe nada hasta confirmar', async
 
 it('aplica solo lo marcado y al reintentar no repite lo ya creado', async () => {
   const first = jest.fn().mockResolvedValue(undefined);
-  const second = jest.fn().mockRejectedValueOnce(new Error('Sin conexión')).mockResolvedValueOnce(undefined);
+  const second = jest.fn().mockRejectedValueOnce({ code: '23514', message: 'violates check constraint' }).mockResolvedValueOnce(undefined);
   jest.mocked(planSteps).mockReturnValue([{ key: 'goal', label: 'Meta', run: first }, { key: 'habit-0', label: 'Hábito', run: second }]);
   const view = await render(<PlanCard plan={plan} />);
   await fireEvent.press(view.getByRole('checkbox', { name: 'Incluir tarea Instalar Python y VS Code' }));
   await fireEvent.press(view.getByRole('button', { name: 'Confirmar y aplicar (2)' }));
-  await waitFor(() => expect(view.getByText(/Sin conexión/)).toBeTruthy());
+  await waitFor(() => expect(view.getByText(/No se pudo aplicar \(Hábito\): violates check constraint/)).toBeTruthy());
   expect(jest.mocked(planSteps).mock.calls[0]![1]).toEqual({ milestones: true, tasks: [], habits: [0] });
   await fireEvent.press(view.getByRole('button', { name: 'Confirmar y aplicar (2)' }));
   await waitFor(() => expect(view.getByText('Plan aplicado.')).toBeTruthy());

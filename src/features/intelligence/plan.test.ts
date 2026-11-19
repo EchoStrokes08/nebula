@@ -1,4 +1,4 @@
-import { emptyPlanState, planSteps, pickAll, studyNotes } from './plan';
+import { applyErrorText, emptyPlanState, isTransient, planSteps, pickAll, runStep, studyNotes } from './plan';
 import { createGoal, addMilestone, fetchGoals, linkHabitToGoal, updateGoal } from '@/features/goals/api';
 import { createHabit } from '@/features/habits/api';
 import { createTask } from '@/features/tasks/api';
@@ -36,7 +36,7 @@ it('respeta lo que la persona desmarca', async () => {
 });
 
 it('con una meta existente añade hitos detrás de los suyos sin crear otra meta', async () => {
-  jest.mocked(fetchGoals).mockResolvedValue([{ id: '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab', description: 'Mía', milestones: [{ sortOrder: 0 }, { sortOrder: 4 }] }] as never);
+  jest.mocked(fetchGoals).mockResolvedValue([{ id: '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab', description: 'Mía', milestones: [{ title: 'Otro', sortOrder: 0 }, { title: 'Más', sortOrder: 4 }] }] as never);
   await run({ ...plan, goalId: '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab' });
   expect(createGoal).not.toHaveBeenCalled();
   expect(addMilestone).toHaveBeenNthCalledWith(1, '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab', 'Sintaxis y tipos', 5, null);
@@ -72,4 +72,28 @@ it('guarda los pasos como subtareas, el criterio de terminado y las dependencias
   expect(first).toMatchObject({ subtasks: ['Descargar Python', 'Ejecutar hola mundo'], dependsOn: [] });
   expect(first!.notes).toContain('Terminado cuando: print funciona en la terminal');
   expect(second).toMatchObject({ title: 'Bucles', dependsOn: ['t0'] });
+});
+
+it('no repite dependencias ni hitos ya añadidos al reintentar', async () => {
+  jest.mocked(createGoal).mockResolvedValue('g1');
+  jest.mocked(createTask).mockResolvedValueOnce('t0').mockResolvedValueOnce('t1');
+  const p = { ...plan, tasks: [{ ...samplePlan.tasks[0], after: [] }, { ...samplePlan.tasks[0], title: 'B', after: [0, 0] }], habits: [] } as unknown as PlanAction;
+  await run(p);
+  expect(jest.mocked(createTask).mock.calls[1]![0].dependsOn).toEqual(['t0']);
+  jest.mocked(fetchGoals).mockResolvedValue([{ id: '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab', description: '', milestones: [{ title: 'Sintaxis y tipos', sortOrder: 0 }] }] as never);
+  await run({ ...plan, goalId: '7d1f6c1e-3d2a-4e5b-9f00-0123456789ab', tasks: [], habits: [] });
+  expect(addMilestone).not.toHaveBeenCalledWith(expect.anything(), 'Sintaxis y tipos', expect.anything(), expect.anything());
+  expect(addMilestone).toHaveBeenCalledTimes(samplePlan.milestones.length - 1);
+});
+
+it('reintenta solo los fallos pasajeros', async () => {
+  const wait = jest.fn().mockResolvedValue(undefined);
+  const flaky = jest.fn().mockRejectedValueOnce({ code: '', message: 'TypeError: Network request failed' }).mockResolvedValueOnce(undefined);
+  await runStep({ key: 'k', label: 'x', run: flaky }, emptyPlanState(), wait);
+  expect(flaky).toHaveBeenCalledTimes(2);
+  const bad = jest.fn().mockRejectedValue({ code: '23514', message: 'tasks_priority_check' });
+  await expect(runStep({ key: 'k', label: 'x', run: bad }, emptyPlanState(), wait)).rejects.toMatchObject({ code: '23514' });
+  expect(bad).toHaveBeenCalledTimes(1);
+  expect(isTransient({ code: 'PGRST301', message: 'JWT expired' })).toBe(true);
+  expect(applyErrorText({ message: 'TypeError: Network request failed' })).toBe('no hay conexión con el servidor');
 });

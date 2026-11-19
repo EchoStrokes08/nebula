@@ -11,7 +11,7 @@ import { milestoneOf, planSchema, type PlanAction, type PlanResource, type PlanT
 import { formatDay } from '@/components/forms/DateField';
 import { useTimeZone, useToday } from '@/features/habits/useToday';
 import type { DayKey } from '@/lib/dates';
-import { emptyPlanState, pickAll, planSteps, refreshAfterPlan, type PlanPick, type PlanState } from './plan';
+import { applyErrorText, emptyPlanState, pickAll, planSteps, refreshAfterPlan, runStep, type PlanPick, type PlanState } from './plan';
 
 const DAY = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
 const daysLabel = (days: number[]) => (days.length === 0 || days.length === 7 ? 'todos los días' : [...days].sort().map((d) => DAY[d]).join(' '));
@@ -86,7 +86,7 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
         if (done.current.has(step.key)) continue;
         current = step.label;
         setProgress(step.label);
-        await step.run(goal.current);
+        await runStep(step, goal.current);
         done.current.add(step.key);
       }
       await refreshAfterPlan();
@@ -94,7 +94,7 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
       setState('done');
     } catch (e) {
       // Los errores de Supabase no son `Error`: se muestra su mensaje y en qué paso falló.
-      const detail = e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' ? e.message : '';
+      const detail = applyErrorText(e);
       console.warn('No se pudo aplicar el plan', current, e);
       setError(`No se pudo aplicar${current ? ` (${current})` : ''}${detail ? `: ${detail}` : '.'} Lo ya creado se conserva; reintenta para completar el resto.`);
       setState('preview');

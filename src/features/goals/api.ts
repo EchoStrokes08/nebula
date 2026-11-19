@@ -92,7 +92,12 @@ export async function createGoal(g: GoalInput & { milestones?: (string | { title
   const { id } = unwrapOne(await db().from('goals').insert(toRow(g)).select('id').single());
   if (g.milestones?.length) {
     const rows = g.milestones.map((m, i) => (typeof m === 'string' ? { goal_id: id, title: m, sort_order: i } : { goal_id: id, title: m.title, due_date: m.dueDate, sort_order: i }));
-    unwrap(await db().from('milestones').insert(rows));
+    const { error } = await db().from('milestones').insert(rows);
+    if (error) {
+      // Sin la meta a medias: un reintento la crearía otra vez y quedaría duplicada.
+      await db().from('goals').delete().eq('id', id);
+      throw error;
+    }
   }
   return id;
 }

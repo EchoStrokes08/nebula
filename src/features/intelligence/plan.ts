@@ -1,4 +1,5 @@
 import { queryClient } from '@/data/queryClient';
+import { supabase } from '@/data/supabase';
 import { dbPriority, milestoneOf, planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
 import { addMilestone, createGoal, fetchGoals, linkHabitToGoal, updateGoal } from '@/features/goals/api';
 import { createHabit } from '@/features/habits/api';
@@ -63,7 +64,9 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
         if (description.length <= 2000) await updateGoal(goal.id, { description });
       }
       const base = goal.milestones.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
-      for (const [i, m] of milestones.entries()) await addMilestone(goal.id, m.title, base + i, m.day as DayKey | null);
+      // Un reintento no repite los hitos que ya se añadieron.
+      const existing = new Set(goal.milestones.map((x) => x.title.trim().toLowerCase()));
+      for (const [i, m] of milestones.entries()) if (!existing.has(m.title.trim().toLowerCase())) await addMilestone(goal.id, m.title, base + i, m.day as DayKey | null);
     },
   }];
   for (const i of pick.tasks) {
@@ -71,7 +74,7 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
     if (!t) continue;
     steps.push({ key: `task-${i}`, label: `Tarea «${t.title}»`, run: async (s) => {
       // Solo dependencias hacia tareas ya creadas de este plan (las no elegidas se ignoran).
-      const dependsOn = t.after.filter((j) => j < i).map((j) => s.taskIds[j]).filter((id): id is string => Boolean(id));
+      const dependsOn = [...new Set(t.after.filter((j) => j < i).map((j) => s.taskIds[j]).filter((id): id is string => Boolean(id)))];
       s.taskIds[i] = await createTask({ title: t.title, priority: dbPriority(t.priority), dueDate: t.day as DayKey | null, estimateMinutes: t.minutes, goalId: s.goalId, notes: studyNotes(t.study, t.resources, 5000, t.done), subtasks: t.steps, dependsOn });
     } });
   }
@@ -87,3 +90,31 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
 }
 
 export const refreshAfterPlan = () => queryClient.invalidateQueries();
+
+const messageOf = (e: unknown) => (e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' ? e.message : String(e ?? ''));
+/** Corte de red, servidor caído un momento o sesión caducada: merece reintentarse solo. */
+export function isTransient(e: unknown): boolean {
+  const code = e && typeof e === 'object' && 'code' in e ? String(e.code) : '';
+  // Errores de datos de Postgres (22xxx, 23xxx, P0001…) no se arreglan reintentando.
+  if (/^(22|23|42|P0)/.test(code)) return false;
+  return /fetch|network|timeout|timed out|abort|jwt|token|5\d\d|gateway|unavailable|conex/i.test(`${code} ${messageOf(e)}`);
+}
+
+/** Ejecuta un paso reintentando hasta 3 veces los fallos pasajeros (renovando la sesión si hace falta). */
+export async function runStep(step: PlanStep, state: PlanState, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await step.run(state); } catch (e) {
+      if (attempt >= 2 || !isTransient(e)) throw e;
+      if (/jwt|token/i.test(messageOf(e))) await supabase?.auth.refreshSession().catch(() => undefined);
+      await wait(800 * (attempt + 1));
+    }
+  }
+}
+
+/** Texto para la persona: el motivo real, en palabras comprensibles cuando se conoce. */
+export function applyErrorText(e: unknown): string {
+  const m = messageOf(e);
+  if (/network|fetch|timeout|timed out|abort/i.test(m)) return 'no hay conexión con el servidor';
+  if (/jwt|token/i.test(m)) return 'la sesión caducó; vuelve a iniciar sesión';
+  return m;
+}
