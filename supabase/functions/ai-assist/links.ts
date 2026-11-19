@@ -1,7 +1,13 @@
 /**
  * Comprueba los enlaces de estudio que propone el modelo antes de enseñarlos.
  * Los modelos a veces recuerdan mal rutas profundas: se descartan los que dan 404/410,
- * errores 5xx o no resuelven. Se aceptan 401/403/429 (sitios que bloquean bots).
+ * errores 5xx o no resuelven.
+ *
+ * Si el enlace exacto no se puede comprobar se cambia por la portada del sitio, que sí existe:
+ * pasa cuando el sitio contesta 401/403/429 o un reto antibots a todo (también a su portada; la
+ * función corre en un centro de datos y muchos sitios bloquean esas IPs) y cuando contesta 200 con
+ * la misma página a cualquier ruta (Duolingo, Khan Academy). Si la portada responde bien pero el
+ * enlace da 403, el enlace está roto de verdad y se descarta.
  *
  * Muchos sitios responden 200 a rutas que no existen («soft 404»): learngerman.dw.com, por
  * ejemplo, sirve el armazón de su app y pinta «404 - Page not found» con JavaScript. Por eso se
@@ -74,9 +80,16 @@ export function isSoft404(url: string, page: PageInfo, probe: PageInfo | null): 
   if (!probe || !page.title || page.title !== probe.title) return false;
   // El sitio sabe que la ruta inventada no existe (4xx) y esta página es un armazón vacío con su
   // mismo título: sin descripción ni canonical y sin ningún <h1> (el contenido lo pinta JavaScript).
-  // Si responde 200 a todo con la misma página (Khan Academy, Duolingo), no se puede saber: se conserva.
   return probe.status >= 400 && !page.identity && !page.headings;
 }
+
+/** true si el sitio sirve la misma página a una ruta inventada: el enlace no se puede comprobar. */
+export function isCatchAll(page: PageInfo, probe: PageInfo | null): boolean {
+  return !!probe && probe.status < 300 && page.title === probe.title && Math.abs(page.size - probe.size) <= 0.1 * Math.max(page.size, probe.size);
+}
+
+const isRoot = (url: string) => { try { return new URL(url).pathname.replace(/\/+$/, '') === ''; } catch { return false; } };
+export const homeOf = (url: string) => `${new URL(url).origin}/`;
 
 /** Ruta hermana que seguro no existe: misma carpeta, último tramo inventado. */
 export function probeUrl(url: string): string | null {
@@ -117,39 +130,53 @@ async function fetchPage(url: string, send: typeof fetch, timeoutMs: number): Pr
   return { ...pageInfo(r.status, typeof r.url === 'string' && r.url ? r.url : null, html), html: html.length > 0 };
 }
 
-/** Comparaciones con rutas inventadas, compartidas por los enlaces de la misma carpeta. */
+/** Peticiones compartidas entre enlaces: rutas inventadas por carpeta y portadas por sitio. */
 export type ProbeCache = Map<string, Promise<PageInfo | null>>;
 
-export async function linkWorks(url: string, send: typeof fetch, timeoutMs = 6000, probes: ProbeCache = new Map()): Promise<boolean> {
-  if (!isPublicHttps(url)) return false;
+/** ok: el enlace funciona · broken: no existe · home: no se puede comprobar, se usa la portada. */
+export type LinkVerdict = 'ok' | 'broken' | 'home';
+
+const blocked = (p: PageInfo) => p.status === 401 || p.status === 403 || p.status === 429 || (p.status < 300 && CHALLENGE.test(p.title));
+
+function cached(cache: ProbeCache, key: string, url: string, send: typeof fetch, timeoutMs: number) {
+  let p = cache.get(key);
+  if (!p) { p = fetchPage(url, send, timeoutMs).catch(() => null); cache.set(key, p); }
+  return p;
+}
+
+export async function checkLink(url: string, send: typeof fetch, timeoutMs = 6000, cache: ProbeCache = new Map()): Promise<LinkVerdict> {
+  if (!isPublicHttps(url)) return 'broken';
   const oembed = videoCheckUrl(url);
   if (oembed) {
     try {
       const r = await send(oembed, { method: 'GET', redirect: 'follow', signal: AbortSignal.timeout(timeoutMs), headers: { ...HEADERS, Accept: 'application/json' } });
       await r.body?.cancel().catch(() => undefined);
-      return r.status === 200;
+      return r.status === 200 ? 'ok' : 'broken';
     } catch {
-      return false;
+      return 'broken';
     }
   }
   try {
     const page = await fetchPage(url, send, timeoutMs);
-    if (page.status >= 300) return page.status < 400 || page.status === 401 || page.status === 403 || page.status === 429;
-    if (!page.html) return true; // PDF, imagen u otro contenido: basta con el 200
-    const probe = probeUrl(url);
-    let probed: Promise<PageInfo | null> | undefined;
-    if (probe) {
-      const key = probe.slice(0, probe.lastIndexOf('/'));
-      probed = probes.get(key);
-      if (!probed) {
-        probed = fetchPage(probe, send, timeoutMs).catch(() => null);
-        probes.set(key, probed);
-      }
+    if (blocked(page)) {
+      // La portada se da por buena aunque bloquee; de una ruta profunda solo se fía si la portada también bloquea.
+      if (isRoot(url)) return 'ok';
+      const home = await cached(cache, `home:${new URL(url).origin}`, homeOf(url), send, timeoutMs);
+      return home && home.status < 400 && !blocked(home) ? 'broken' : 'home';
     }
-    return !isSoft404(url, page, probed ? await probed : null);
+    if (page.status >= 300) return page.status < 400 ? 'ok' : 'broken';
+    if (!page.html) return 'ok'; // PDF, imagen u otro contenido: basta con el 200
+    const probe = probeUrl(url);
+    const probed = probe ? await cached(cache, probe.slice(0, probe.lastIndexOf('/')), probe, send, timeoutMs) : null;
+    if (isSoft404(url, page, probed)) return 'broken';
+    return isCatchAll(page, probed) ? 'home' : 'ok';
   } catch {
-    return false;
+    return 'broken';
   }
+}
+
+export async function linkWorks(url: string, send: typeof fetch, timeoutMs = 6000, cache: ProbeCache = new Map()): Promise<boolean> {
+  return (await checkLink(url, send, timeoutMs, cache)) === 'ok';
 }
 
 interface WithResources { resources: PlanResource[] }
@@ -157,8 +184,8 @@ interface PlanLike extends WithResources { type: 'create_plan'; tasks: WithResou
 
 /**
  * Filtra en sitio los recursos rotos de cada `create_plan`. Un vídeo que no se puede ver se
- * cambia por una búsqueda en YouTube de su título; el resto de enlaces rotos se descartan.
- * Devuelve cuántos se descartaron.
+ * cambia por una búsqueda en YouTube de su título; un enlace que no se puede comprobar, por la
+ * portada de su sitio; el resto de enlaces rotos se descartan. Devuelve cuántos se descartaron.
  */
 export async function verifyPlanLinks(result: { actions: { type: string }[] }, send: typeof fetch = fetch): Promise<number> {
   const plans = result.actions.filter((a): a is PlanLike => a.type === 'create_plan');
@@ -166,20 +193,24 @@ export async function verifyPlanLinks(result: { actions: { type: string }[] }, s
   const urls = [...new Set(lists.flatMap((l) => l.resources.map((r) => r.url)))].slice(0, MAX_LINKS);
   if (!urls.length) return 0;
   // Planes grandes traen muchos enlaces: se comprueban en tandas para no saturar la función.
-  const ok = new Map<string, boolean>();
-  const probes: ProbeCache = new Map();
+  const verdict = new Map<string, LinkVerdict>();
+  const cache: ProbeCache = new Map();
   let next = 0;
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, urls.length) }, async () => {
-    while (next < urls.length) { const u = urls[next++]!; ok.set(u, await linkWorks(u, send, 6000, probes)); }
+    while (next < urls.length) { const u = urls[next++]!; verdict.set(u, await checkLink(u, send, 6000, cache)); }
   }));
   let dropped = 0;
   for (const l of lists) {
     const kept: PlanResource[] = [];
+    const add = (r: PlanResource) => { if (!kept.some((k) => k.url === r.url)) kept.push(r); };
     for (const r of l.resources) {
-      if (ok.get(r.url) === true) kept.push(r);
-      else if (ok.has(r.url) && videoCheckUrl(r.url) && isPublicHttps(r.url)) {
-        const search = youtubeSearch(r.title);
-        if (!kept.some((k) => k.url === search)) kept.push({ title: r.title, url: search, note: `[Búsqueda en YouTube] El vídeo propuesto no está disponible; aquí tienes vídeos sobre «${r.title}».`.slice(0, 200) });
+      const v = verdict.get(r.url);
+      if (v === 'ok') add(r);
+      else if (v === 'home') {
+        const host = new URL(r.url).hostname.replace(/^www\./, '');
+        add({ title: r.title, url: homeOf(r.url), note: `[Web] Portada de ${host}; busca ahí «${r.title}».`.slice(0, 200) });
+      } else if (v && videoCheckUrl(r.url) && isPublicHttps(r.url)) {
+        add({ title: r.title, url: youtubeSearch(r.title), note: `[Búsqueda en YouTube] El vídeo propuesto no está disponible; aquí tienes vídeos sobre «${r.title}».`.slice(0, 200) });
       } else dropped++;
     }
     l.resources = kept;

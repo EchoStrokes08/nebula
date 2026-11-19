@@ -1,5 +1,5 @@
 import { cleanOutput, createProvider } from '../../../supabase/functions/ai-assist/provider';
-import { isPublicHttps, isSoft404, pageInfo, probeUrl, verifyPlanLinks, videoCheckUrl, youtubeSearch } from '../../../supabase/functions/ai-assist/links';
+import { homeOf, isPublicHttps, isSoft404, pageInfo, probeUrl, verifyPlanLinks, videoCheckUrl, youtubeSearch } from '../../../supabase/functions/ai-assist/links';
 import { assistanceSchema, planSchema, type PlanAction } from './actions';
 import { samplePlan } from './plan.fixture';
 
@@ -134,5 +134,28 @@ describe('comprobación de enlaces', () => {
     expect(probeUrl('https://learngerman.dw.com/es/placement-test')).toMatch(/^https:\/\/learngerman\.dw\.com\/es\/nebula-[a-z0-9]+$/);
     expect(probeUrl('https://ej.com/a/b/')).toMatch(/^https:\/\/ej\.com\/a\/nebula-[a-z0-9]+$/);
     expect(probeUrl('https://ej.com/')).toBeNull();
+  });
+  it('cambia por la portada los enlaces que no se pueden comprobar y quita los 403 de sitios que sí responden', async () => {
+    const page = (status: number, html: string) => ({ status, url: '', headers: { get: () => 'text/html' }, body: new ReadableStream({ start(c) { c.enqueue(new TextEncoder().encode(html)); c.close(); } }) });
+    const shell = '<title>Duolingo</title><meta name="description" content="x"><h1>Learn a language</h1>';
+    const send = jest.fn(async (url: string) => {
+      if (url.startsWith('https://www.duolingo.com/')) return page(200, shell); // 200 a cualquier ruta
+      if (url === 'https://bloqueado.example.com/') return page(403, '<title>Forbidden</title>');
+      if (url.startsWith('https://bloqueado.example.com/')) return page(403, '<title>Forbidden</title>');
+      if (url === 'https://www.coe.int/') return page(200, '<title>Council of Europe</title><h1>Inicio</h1>');
+      if (url.startsWith('https://www.coe.int/')) return page(403, '<title>Forbidden</title>');
+      return page(404, '<title>404</title>');
+    });
+    const plan = JSON.parse(JSON.stringify({ ...samplePlan, tasks: [], habits: [], resources: [
+      { title: 'Curso de alemán', url: 'https://www.duolingo.com/course/de/es/inventado', note: '[Curso] x' },
+      { title: 'Otro de Duolingo', url: 'https://www.duolingo.com/learn', note: null },
+      { title: 'Sitio que bloquea todo', url: 'https://bloqueado.example.com/guia', note: null },
+      { title: 'MCER', url: 'https://www.coe.int/es/web/inventado', note: null },
+    ] }));
+    const dropped = await verifyPlanLinks({ actions: [plan] }, send as unknown as typeof fetch);
+    expect(dropped).toBe(1); // coe.int: la portada responde, el 403 es del enlace
+    expect(plan.resources.map((r: { url: string }) => r.url)).toEqual(['https://www.duolingo.com/', 'https://bloqueado.example.com/']);
+    expect(plan.resources[0].note).toMatch(/^\[Web\] Portada de duolingo\.com/);
+    expect(homeOf('https://a.example.com/x/y?z=1')).toBe('https://a.example.com/');
   });
 });
