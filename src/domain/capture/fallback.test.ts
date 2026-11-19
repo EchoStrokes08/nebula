@@ -149,4 +149,11 @@ describe('planes incompletos', () => {
     const send = jest.fn().mockResolvedValueOnce(reply(3, 0)).mockResolvedValueOnce(reply(6, 1)).mockResolvedValueOnce(reply(2, 1));
     await expect(createProvider(env(), send)!.respond('plan', {})).resolves.toMatchObject({ message: '6/1' });
   });
+
+  it('no hace esperar más de un minuto buscando un plan completo si ya tiene uno', async () => {
+    let t = 0;
+    const send = jest.fn(async () => { t += 40_000; return reply(5, 1); });
+    await expect(createProvider(env(), send as unknown as typeof fetch, () => t)!.respond('plan', {})).resolves.toMatchObject({ message: '5/1' });
+    expect(send).toHaveBeenCalledTimes(2); // a los 80 s ya no prueba el tercero
+  });
 });

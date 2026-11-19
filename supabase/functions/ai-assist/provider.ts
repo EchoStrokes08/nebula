@@ -248,6 +248,8 @@ export function createProvider(env: (key: string) => string | undefined, send: t
   const deadlineMs = Number(env('AI_DEADLINE_MS') ?? 140000);
   const connectMs = Number(env('AI_CONNECT_TIMEOUT_MS') ?? 20000);
   const MIN_ATTEMPT_MS = 15000;
+  // Con un plan incompleto en la mano no se hace esperar más de esto buscando uno completo.
+  const SHORT_PLAN_BUDGET_MS = Number(env('AI_SHORT_PLAN_BUDGET_MS') ?? 60000);
   const specs = modelSpecs(env);
   if (!specs.length) return null;
   const base = specs.map((spec) => ({ spec, timeoutMs }));
@@ -268,7 +270,8 @@ export function createProvider(env: (key: string) => string | undefined, send: t
     for (const c of order) {
       const left = deadlineMs - (now() - start);
       if (left < MIN_ATTEMPT_MS) break;
-      // Ya hay un plan (aunque corto): no se gasta el tiempo que queda en modelos que descansan.
+      // Ya hay un plan (aunque corto): se busca uno mejor solo un rato y nunca en modelos que descansan.
+      if (best && now() - start > SHORT_PLAN_BUDGET_MS) break;
       if (best && (health.get(c.spec.id)?.until ?? 0) > now()) continue;
       attempts += 1;
       const tried = now();
