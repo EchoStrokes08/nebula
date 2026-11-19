@@ -80,9 +80,11 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
     if (running.current) return;
     running.current = true;
     setState('saving'); setError('');
+    let current = '';
     try {
       for (const step of planSteps(plan, pick, tz)) {
         if (done.current.has(step.key)) continue;
+        current = step.label;
         setProgress(step.label);
         await step.run(goal.current);
         done.current.add(step.key);
@@ -91,7 +93,10 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
       setGoalId(goal.current.goalId);
       setState('done');
     } catch (e) {
-      setError(`${e instanceof Error ? e.message : 'No se pudo aplicar.'} Lo ya creado se conserva; reintenta para completar el resto.`);
+      // Los errores de Supabase no son `Error`: se muestra su mensaje y en qué paso falló.
+      const detail = e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' ? e.message : '';
+      console.warn('No se pudo aplicar el plan', current, e);
+      setError(`No se pudo aplicar${current ? ` (${current})` : ''}${detail ? `: ${detail}` : '.'} Lo ya creado se conserva; reintenta para completar el resto.`);
       setState('preview');
     } finally { setProgress(''); running.current = false; }
   };

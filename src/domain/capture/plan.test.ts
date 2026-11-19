@@ -1,6 +1,6 @@
 import { cleanOutput, createProvider } from '../../../supabase/functions/ai-assist/provider';
 import { homeOf, isPublicHttps, isSoft404, pageInfo, probeUrl, verifyPlanLinks, videoCheckUrl, youtubeSearch } from '../../../supabase/functions/ai-assist/links';
-import { assistanceSchema, planSchema, type PlanAction } from './actions';
+import { assistanceSchema, dbPriority, normalizeActions, planSchema, type PlanAction } from './actions';
 import { samplePlan } from './plan.fixture';
 
 
@@ -159,5 +159,25 @@ describe('comprobación de enlaces', () => {
     expect(plan.resources.map((r: { url: string }) => r.url)).toEqual(['https://www.duolingo.com/', 'https://reto.example.com/']);
     expect(plan.resources[0].note).toMatch(/^\[Web\] Portada de duolingo\.com/);
     expect(homeOf('https://a.example.com/x/y?z=1')).toBe('https://a.example.com/');
+  });
+});
+
+describe('límites de la base de datos', () => {
+  it('lleva las prioridades a 1-3 y recorta títulos de metas', () => {
+    const plan = JSON.parse(JSON.stringify(samplePlan));
+    plan.tasks = [{ ...plan.tasks[0], priority: 0 }, { ...plan.tasks[0], priority: 3 }];
+    const actions = [
+      plan,
+      { type: 'create_task', title: 'x', day: null, time: null, minutes: null, priority: 0, recurrence: null },
+      { type: 'prioritize_task', id: '00000000-0000-4000-8000-000000000000', priority: 0 },
+      { type: 'create_goal', title: 'a'.repeat(160), day: null, milestones: ['b'.repeat(150)] },
+    ];
+    normalizeActions(actions);
+    expect(plan.tasks.map((t: { priority: number }) => t.priority)).toEqual([1, 3]);
+    expect((actions[1] as { priority: number }).priority).toBe(1);
+    expect((actions[2] as { priority: number }).priority).toBe(1);
+    expect((actions[3] as { title: string }).title).toHaveLength(120);
+    expect((actions[3] as { milestones: string[] }).milestones[0]).toHaveLength(120);
+    expect([0, 1, 2, 3, 7].map(dbPriority)).toEqual([1, 1, 2, 3, 3]);
   });
 });

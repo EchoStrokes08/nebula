@@ -23,7 +23,7 @@ export const planTaskSchema = z.object({
   title,
   day: day.nullable(),
   minutes: minutes.nullable(),
-  priority: z.number().int().min(0).max(3),
+  priority: z.number().int().min(0).max(3).describe('1 baja, 2 media, 3 alta'),
   study,
   resources,
   /** Pasos concretos (se guardan como subtareas). */
@@ -52,14 +52,33 @@ export const planSchema = z.object({
 }).strict();
 export type PlanAction = z.infer<typeof planSchema>;
 export const actionSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('create_task'), title, day: day.nullable(), time: time.nullable(), minutes: minutes.nullable(), priority: z.number().int().min(0).max(3), recurrence: z.enum(['daily', 'weekly', 'monthly']).nullable() }).strict(),
+  z.object({ type: z.literal('create_task'), title, day: day.nullable(), time: time.nullable(), minutes: minutes.nullable(), priority: z.number().int().min(0).max(3).describe('1 baja, 2 media, 3 alta'), recurrence: z.enum(['daily', 'weekly', 'monthly']).nullable() }).strict(),
   z.object({ type: z.literal('create_habit'), title: title.max(80), minutes: minutes.nullable(), days: weekdays, time: time.nullable() }).strict(),
   z.object({ type: z.literal('create_goal'), title, day: day.nullable(), milestones: z.array(title).max(12) }).strict(),
   z.object({ type: z.literal('create_event'), title, day, time, minutes }).strict(),
   z.object({ type: z.literal('move_task'), id: z.uuid(), day, time, minutes }).strict(),
   z.object({ type: z.literal('estimate_task'), id: z.uuid(), minutes }).strict(),
-  z.object({ type: z.literal('prioritize_task'), id: z.uuid(), priority: z.number().int().min(0).max(3) }).strict(),
+  z.object({ type: z.literal('prioritize_task'), id: z.uuid(), priority: z.number().int().min(0).max(3).describe('1 baja, 2 media, 3 alta') }).strict(),
   planSchema,
 ]);
 export type ProposedAction = z.infer<typeof actionSchema>;
 export const assistanceSchema = z.object({ message: z.string().max(4000), actions: z.array(actionSchema).max(12) }).strict();
+
+/** Prioridad de la base de datos: 1 baja, 2 media, 3 alta. Los modelos a veces usan 0. */
+export const dbPriority = (p: number) => Math.min(3, Math.max(1, Math.round(p)));
+
+/**
+ * Ajusta en sitio lo que el modelo propone a los límites de la base de datos (antes, una tarea
+ * con prioridad 0 hacía fallar «Confirmar y aplicar»). Lo usan el servidor y la app.
+ */
+export function normalizeActions(actions: { type: string }[]): void {
+  for (const a of actions as Record<string, unknown>[]) {
+    if ((a.type === 'create_task' || a.type === 'prioritize_task') && typeof a.priority === 'number') a.priority = dbPriority(a.priority);
+    if (a.type === 'create_plan' && Array.isArray(a.tasks)) for (const t of a.tasks as { priority?: number }[]) if (typeof t.priority === 'number') t.priority = dbPriority(t.priority);
+    if (a.type === 'create_goal') {
+      if (typeof a.title === 'string') a.title = a.title.slice(0, 120).trim();
+      if (Array.isArray(a.milestones)) a.milestones = (a.milestones as string[]).map((m) => m.slice(0, 120).trim());
+    }
+  }
+}
+

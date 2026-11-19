@@ -1,5 +1,5 @@
 import { queryClient } from '@/data/queryClient';
-import { milestoneOf, planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
+import { dbPriority, milestoneOf, planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
 import { addMilestone, createGoal, fetchGoals, linkHabitToGoal, updateGoal } from '@/features/goals/api';
 import { createHabit } from '@/features/habits/api';
 import { createTask } from '@/features/tasks/api';
@@ -72,7 +72,7 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
     steps.push({ key: `task-${i}`, label: `Tarea «${t.title}»`, run: async (s) => {
       // Solo dependencias hacia tareas ya creadas de este plan (las no elegidas se ignoran).
       const dependsOn = t.after.filter((j) => j < i).map((j) => s.taskIds[j]).filter((id): id is string => Boolean(id));
-      s.taskIds[i] = await createTask({ title: t.title, priority: t.priority, dueDate: t.day as DayKey | null, estimateMinutes: t.minutes, goalId: s.goalId, notes: studyNotes(t.study, t.resources, 5000, t.done), subtasks: t.steps, dependsOn });
+      s.taskIds[i] = await createTask({ title: t.title, priority: dbPriority(t.priority), dueDate: t.day as DayKey | null, estimateMinutes: t.minutes, goalId: s.goalId, notes: studyNotes(t.study, t.resources, 5000, t.done), subtasks: t.steps, dependsOn });
     } });
   }
   for (const i of pick.habits) {

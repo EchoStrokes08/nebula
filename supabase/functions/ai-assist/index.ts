@@ -5,6 +5,7 @@ import { createProvider, ProviderUnavailable, type Attempt } from './provider.ts
 import { rankModels, type HealthRow } from './health.ts';
 import { verifyPlanLinks } from './links.ts';
 import { toLegacyResponse } from '../../../src/domain/capture/legacy.ts';
+import { normalizeActions } from '../../../src/domain/capture/actions.ts';
 import { busyFromTasks, schedulePlan, type SchedulePlan } from '../../../src/domain/capture/schedule.ts';
 import { assistantContextSchema, historySchema } from '../../../src/domain/assistant/context.ts';
 
@@ -75,6 +76,8 @@ Deno.serve(async (req) => {
     }
     // Los enlaces de estudio se comprueban aquí: el cliente solo ve los que responden.
     await verifyPlanLinks(result);
+    // Prioridades y longitudes dentro de los límites de la base de datos (si no, «aplicar» falla).
+    normalizeActions(result.actions);
     // Las fechas del plan se ajustan a la semana real de la persona (días activos y carga).
     const ctx = parsed.data.context;
     if ('now' in ctx) {
