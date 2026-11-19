@@ -56,7 +56,7 @@ describe('comprobación de enlaces', () => {
     expect(isPublicHttps('https://example.com:8080/')).toBe(false);
     expect(isPublicHttps('http://example.com/')).toBe(false);
   });
-  it('quita los 404 y los que no resuelven; conserva los que bloquean bots', async () => {
+  it('quita los 404, los «Forbidden» y los que no resuelven; conserva los que ponen un reto antibots', async () => {
     const plan = JSON.parse(JSON.stringify({ ...samplePlan, resources: [
       { title: 'Bien', url: 'https://ok.example.com/', note: null },
       { title: 'Inventado', url: 'https://ok.example.com/no-existe', note: null },
@@ -66,7 +66,7 @@ describe('comprobación de enlaces', () => {
     const send = jest.fn(async (url: string, init: { method: string }) => {
       if (url.includes('nada')) throw new TypeError('dns');
       if (url.includes('no-existe')) return { status: 404 };
-      if (url.includes('cf.')) return { status: 403 };
+      if (url.includes('cf.')) return { status: 429 };
       if (url.includes('python.org') && init.method === 'HEAD') return { status: 405 };
       return { status: 200 };
     });
@@ -140,21 +140,23 @@ describe('comprobación de enlaces', () => {
     const shell = '<title>Duolingo</title><meta name="description" content="x"><h1>Learn a language</h1>';
     const send = jest.fn(async (url: string) => {
       if (url.startsWith('https://www.duolingo.com/')) return page(200, shell); // 200 a cualquier ruta
-      if (url === 'https://bloqueado.example.com/') return page(403, '<title>Forbidden</title>');
-      if (url.startsWith('https://bloqueado.example.com/')) return page(403, '<title>Forbidden</title>');
+      if (url.startsWith('https://reto.example.com/')) return page(403, '<title>Just a moment...</title>'); // Cloudflare
+      if (url.startsWith('https://www.goethe.de/')) return page(403, '<title>Forbidden</title>'); // bloquea el sitio entero
       if (url === 'https://www.coe.int/') return page(200, '<title>Council of Europe</title><h1>Inicio</h1>');
-      if (url.startsWith('https://www.coe.int/')) return page(403, '<title>Forbidden</title>');
+      if (url.startsWith('https://www.coe.int/')) return page(429, '<title>Too many requests</title>');
       return page(404, '<title>404</title>');
     });
     const plan = JSON.parse(JSON.stringify({ ...samplePlan, tasks: [], habits: [], resources: [
       { title: 'Curso de alemán', url: 'https://www.duolingo.com/course/de/es/inventado', note: '[Curso] x' },
       { title: 'Otro de Duolingo', url: 'https://www.duolingo.com/learn', note: null },
-      { title: 'Sitio que bloquea todo', url: 'https://bloqueado.example.com/guia', note: null },
+      { title: 'Sitio con reto', url: 'https://reto.example.com/guia', note: null },
+      { title: 'Guía B1', url: 'https://www.goethe.de/es/spr/b1.html', note: null },
+      { title: 'Goethe', url: 'https://www.goethe.de/', note: null },
       { title: 'MCER', url: 'https://www.coe.int/es/web/inventado', note: null },
     ] }));
     const dropped = await verifyPlanLinks({ actions: [plan] }, send as unknown as typeof fetch);
-    expect(dropped).toBe(1); // coe.int: la portada responde, el 403 es del enlace
-    expect(plan.resources.map((r: { url: string }) => r.url)).toEqual(['https://www.duolingo.com/', 'https://bloqueado.example.com/']);
+    expect(dropped).toBe(3); // goethe.de (enlace y portada: «Forbidden») y coe.int (la portada responde sin límite)
+    expect(plan.resources.map((r: { url: string }) => r.url)).toEqual(['https://www.duolingo.com/', 'https://reto.example.com/']);
     expect(plan.resources[0].note).toMatch(/^\[Web\] Portada de duolingo\.com/);
     expect(homeOf('https://a.example.com/x/y?z=1')).toBe('https://a.example.com/');
   });

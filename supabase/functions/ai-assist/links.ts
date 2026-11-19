@@ -4,10 +4,10 @@
  * errores 5xx o no resuelven.
  *
  * Si el enlace exacto no se puede comprobar se cambia por la portada del sitio, que sí existe:
- * pasa cuando el sitio contesta 401/403/429 o un reto antibots a todo (también a su portada; la
- * función corre en un centro de datos y muchos sitios bloquean esas IPs) y cuando contesta 200 con
- * la misma página a cualquier ruta (Duolingo, Khan Academy). Si la portada responde bien pero el
- * enlace da 403, el enlace está roto de verdad y se descarta.
+ * pasa cuando el sitio pone un reto antibots o un 429 (una persona sí pasa) y cuando contesta 200
+ * con la misma página a cualquier ruta (Duolingo, Khan Academy). Un 401/403 sin reto es un
+ * «Forbidden» que también ve la persona (goethe.de bloquea así sitios enteros): se descarta,
+ * aunque sea la portada.
  *
  * Muchos sitios responden 200 a rutas que no existen («soft 404»): learngerman.dw.com, por
  * ejemplo, sirve el armazón de su app y pinta «404 - Page not found» con JavaScript. Por eso se
@@ -70,7 +70,7 @@ export function pageInfo(status: number, finalUrl: string | null, html: string):
 
 /** true si la página responde 2xx pero en realidad es un «no encontrado». `probe` es una ruta inventada del mismo sitio. */
 export function isSoft404(url: string, page: PageInfo, probe: PageInfo | null): boolean {
-  if (CHALLENGE.test(page.title)) return false; // comprobación antibots: como un 403, no se puede saber
+  if (CHALLENGE.test(page.title)) return false; // reto antibots: no se puede saber
   if (NOT_FOUND.test(page.title) || NOT_FOUND.test(page.headings)) return true;
   // Una ruta profunda que acaba en la portada: el sitio no la conoce.
   try {
@@ -136,7 +136,10 @@ export type ProbeCache = Map<string, Promise<PageInfo | null>>;
 /** ok: el enlace funciona · broken: no existe · home: no se puede comprobar, se usa la portada. */
 export type LinkVerdict = 'ok' | 'broken' | 'home';
 
-const blocked = (p: PageInfo) => p.status === 401 || p.status === 403 || p.status === 429 || (p.status < 300 && CHALLENGE.test(p.title));
+/** Reto antibots o límite de peticiones: una persona sí ve la página. */
+const challenged = (p: PageInfo) => p.status === 429 || ((p.status < 300 || p.status === 403 || p.status === 503) && CHALLENGE.test(p.title));
+/** «Forbidden» de verdad: la persona tampoco entra. */
+const forbidden = (p: PageInfo) => (p.status === 401 || p.status === 403) && !challenged(p);
 
 function cached(cache: ProbeCache, key: string, url: string, send: typeof fetch, timeoutMs: number) {
   let p = cache.get(key);
@@ -158,11 +161,13 @@ export async function checkLink(url: string, send: typeof fetch, timeoutMs = 600
   }
   try {
     const page = await fetchPage(url, send, timeoutMs);
-    if (blocked(page)) {
-      // La portada se da por buena aunque bloquee; de una ruta profunda solo se fía si la portada también bloquea.
+    if (forbidden(page)) return 'broken';
+    if (challenged(page)) {
       if (isRoot(url)) return 'ok';
+      // Si la portada sí responde sin reto, el reto es de este enlace; si no, se manda a la portada.
       const home = await cached(cache, `home:${new URL(url).origin}`, homeOf(url), send, timeoutMs);
-      return home && home.status < 400 && !blocked(home) ? 'broken' : 'home';
+      if (!home || forbidden(home)) return 'broken';
+      return home.status < 400 && !challenged(home) ? 'broken' : 'home';
     }
     if (page.status >= 300) return page.status < 400 ? 'ok' : 'broken';
     if (!page.html) return 'ok'; // PDF, imagen u otro contenido: basta con el 200
