@@ -51,6 +51,31 @@ export function cleanOutput(raw: string): unknown {
   return data;
 }
 
+type PlanOut = { type: string; milestones?: unknown[]; tasks?: { steps?: unknown[]; done?: unknown }[]; habits?: unknown[] };
+
+/** Mínimos de un plan completo: por debajo, se pide a otro modelo (los pequeños a veces se quedan cortos). */
+export const PLAN_MINIMUM = { tasks: 8, habits: 1, milestones: 3 } as const;
+
+/** Por qué un plan está incompleto, o null si cumple. Las respuestas sin plan siempre cumplen. */
+export function planShortfall(result: unknown): string | null {
+  const plans = ((result as { actions?: PlanOut[] })?.actions ?? []).filter((a) => a?.type === 'create_plan');
+  for (const p of plans) {
+    const tasks = p.tasks ?? [];
+    if (tasks.length < PLAN_MINIMUM.tasks) return `plan corto: ${tasks.length} tareas`;
+    if ((p.habits ?? []).length < PLAN_MINIMUM.habits) return 'plan sin hábitos';
+    if ((p.milestones ?? []).length < PLAN_MINIMUM.milestones) return `plan con ${(p.milestones ?? []).length} hitos`;
+    const detailed = tasks.filter((t) => (t.steps?.length ?? 0) >= 2 && t.done).length;
+    if (detailed < tasks.length * 0.8) return `tareas sin pasos: ${tasks.length - detailed}/${tasks.length}`;
+  }
+  return null;
+}
+
+/** Cuánto trae un plan (para quedarse con el más completo si ninguno llega al mínimo). */
+export function planScore(result: unknown): number {
+  return ((result as { actions?: PlanOut[] })?.actions ?? []).filter((a) => a?.type === 'create_plan')
+    .reduce((n, p) => n + (p.tasks?.length ?? 0) + 3 * Math.min(p.habits?.length ?? 0, 4) + (p.milestones?.length ?? 0), 0);
+}
+
 /** Error de un modelo concreto: `transient` (saturado, límite, caído, lento) o permanente. */
 export class ModelError extends Error {
   readonly transient: boolean;
@@ -235,17 +260,30 @@ export function createProvider(env: (key: string) => string | undefined, send: t
   return { async respond(message, context, history = []) {
     const start = now();
     let busy = false; let attempts = 0;
+    // El mejor plan incompleto: se devuelve si ningún modelo da uno completo a tiempo.
+    let best: { result: unknown; score: number } | null = null;
     const ready = chain.filter((c) => (health.get(c.spec.id)?.until ?? 0) <= start);
     // Todos descansando: se prueban igualmente, empezando por el que antes se recupere.
     const order = ready.length ? [...ready, ...chain.filter((c) => !ready.includes(c))] : [...chain].sort((a, b) => (health.get(a.spec.id)?.until ?? 0) - (health.get(b.spec.id)?.until ?? 0));
     for (const c of order) {
       const left = deadlineMs - (now() - start);
       if (left < MIN_ATTEMPT_MS) break;
+      // Ya hay un plan (aunque corto): no se gasta el tiempo que queda en modelos que descansan.
+      if (best && (health.get(c.spec.id)?.until ?? 0) > now()) continue;
       attempts += 1;
       const tried = now();
       try {
         const result = await single(c.spec, Math.min(c.timeoutMs, left - 2000), connectMs, maxTokens, send).respond(message, context, history);
         health.delete(c.spec.id);
+        const short = planShortfall(result);
+        if (short) {
+          // Respondió, pero el plan está incompleto: se prueba el siguiente y se guarda por si acaso.
+          options.onAttempt?.({ model: c.spec.id, outcome: 'error', ms: now() - tried });
+          console.log(JSON.stringify({ ai: 'short', model: c.spec.id, reason: short }));
+          const score = planScore(result);
+          if (!best || score > best.score) best = { result, score };
+          continue;
+        }
         options.onAttempt?.({ model: c.spec.id, outcome: 'ok', ms: now() - tried });
         console.log(JSON.stringify({ ai: 'ok', model: c.spec.id, ms: now() - start }));
         return result;
@@ -256,6 +294,10 @@ export function createProvider(env: (key: string) => string | undefined, send: t
         options.onAttempt?.({ model: c.spec.id, outcome: saturated ? 'busy' : 'error', ms: now() - tried });
         if (!(e instanceof ModelError) || e.transient) { busy = true; markFailure(c.spec.id, e, now()); }
       }
+    }
+    if (best) {
+      console.log(JSON.stringify({ ai: 'best-short', ms: now() - start }));
+      return best.result;
     }
     // Sin tiempo para intentar ninguno también cuenta como saturación.
     throw new ProviderUnavailable(busy || attempts === 0);

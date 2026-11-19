@@ -1,4 +1,5 @@
-import { createProvider, ProviderUnavailable, resetModelHealth } from '../../../supabase/functions/ai-assist/provider';
+import { createProvider, planShortfall, ProviderUnavailable, resetModelHealth } from '../../../supabase/functions/ai-assist/provider';
+import { samplePlan } from './plan.fixture';
 
 const ok = (message: string) => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({ choices: [{ message: { content: JSON.stringify({ message, actions: [] }) } }] }) });
 const fail = (status: number, retry?: string) => ({ ok: false, status, headers: new Headers(retry ? { 'retry-after': retry } : {}), body: null });
@@ -122,5 +123,30 @@ describe('tres proveedores', () => {
       ['https://openrouter.ai/api/v1/chat/completions', 'Bearer ko'],
       ['https://api.cloudflare.com/client/v4/accounts/x/ai/v1/chat/completions', 'Bearer kc'],
     ]);
+  });
+});
+
+describe('planes incompletos', () => {
+  const task = (i: number) => ({ ...samplePlan.tasks[0], title: `Tarea ${i}`, steps: ['a', 'b'], done: 'hecho' });
+  const plan = (tasks: number, habits: number) => ({ ...samplePlan, milestones: [0, 1, 2, 3].map((i) => ({ title: `Hito ${i}`, day: null })), tasks: Array.from({ length: tasks }, (_, i) => task(i)), habits: samplePlan.habits.concat(samplePlan.habits, samplePlan.habits).slice(0, habits) });
+  const reply = (tasks: number, habits: number) => ({ ok: true, status: 200, headers: new Headers(), json: async () => ({ choices: [{ message: { content: JSON.stringify({ message: `${tasks}/${habits}`, actions: [plan(tasks, habits)] }) } }] }) });
+
+  it('detecta planes cortos, sin hábitos o con tareas sin pasos', () => {
+    expect(planShortfall({ actions: [plan(12, 2)] })).toBeNull();
+    expect(planShortfall({ actions: [plan(3, 1)] })).toMatch(/3 tareas/);
+    expect(planShortfall({ actions: [plan(12, 0)] })).toMatch(/sin hábitos/);
+    expect(planShortfall({ actions: [{ ...plan(10, 1), tasks: plan(10, 1).tasks.map((t) => ({ ...t, steps: [] })) }] })).toMatch(/sin pasos/);
+    expect(planShortfall({ message: 'hola', actions: [] })).toBeNull(); // sin plan no se exige nada
+  });
+
+  it('pide el plan a otro modelo si llega incompleto', async () => {
+    const send = jest.fn().mockResolvedValueOnce(reply(3, 0)).mockResolvedValueOnce(reply(15, 2));
+    await expect(createProvider(env(), send)!.respond('plan', {})).resolves.toMatchObject({ message: '15/2' });
+    expect(send.mock.calls.map(model)).toEqual(['listo', 'medio']);
+  });
+
+  it('si ninguno llega al mínimo devuelve el más completo en vez de fallar', async () => {
+    const send = jest.fn().mockResolvedValueOnce(reply(3, 0)).mockResolvedValueOnce(reply(6, 1)).mockResolvedValueOnce(reply(2, 1));
+    await expect(createProvider(env(), send)!.respond('plan', {})).resolves.toMatchObject({ message: '6/1' });
   });
 });
