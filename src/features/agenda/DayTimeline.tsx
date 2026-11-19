@@ -56,8 +56,8 @@ export function DayTimeline({
   return (
     <View style={styles.root}>
       {allDay.map((i) => (
-        <Pressable key={i.key} onPress={() => openItem(i)} style={[styles.allDay, { borderLeftColor: CATEGORY_COLOR[i.category ?? 'otro'] }]} accessibilityRole="button" accessibilityLabel={`${i.title}, todo el día`}>
-          <Text variant="caption" numberOfLines={1}>{i.title}</Text>
+        <Pressable key={i.key} onPress={() => openItem(i)} style={[styles.allDay, { borderLeftColor: i.overdue ? colors.danger : i.kind === 'task' ? colors.warning : CATEGORY_COLOR[i.category ?? 'otro'] }]} accessibilityRole="button" accessibilityLabel={i.overdue ? `Tarea vencida: ${i.title}` : i.due ? `Tarea: ${i.title}, vence este día` : `${i.title}, todo el día`}>
+          <Text variant="caption" numberOfLines={1}>{i.overdue ? `Vencida · ${i.title}` : i.due ? `Vence · ${i.title}` : i.title}</Text>
         </Pressable>
       ))}
       <View style={{ height: hours.length * hourHeight }}>
@@ -69,10 +69,10 @@ export function DayTimeline({
         ))}
         <View style={[StyleSheet.absoluteFill, { left: gutter }]}>
           {laid.map((i) => {
-            const color = i.kind === 'task' ? colors.accent : i.kind === 'focus' ? colors.success : (CATEGORY_COLOR[i.category ?? 'otro'] ?? colors.info);
+            const color = i.due ? colors.warning : i.kind === 'task' ? colors.accent : i.kind === 'focus' ? colors.success : (CATEGORY_COLOR[i.category ?? 'otro'] ?? colors.info);
             const top = px(i.start);
             const height = Math.max(compact ? 16 : 24, px(i.end) - top - 2);
-            const label = `${KIND_LABEL[i.kind]}: ${i.title}, de ${hhmm(i.start)} a ${hhmm(i.end % 1440)}${i.conflict ? '. Se solapa con otro elemento' : ''}${i.imported ? '. Importado' : ''}`;
+            const label = i.due ? `Tarea: ${i.title}, vence a las ${hhmm(i.start)}` : `${KIND_LABEL[i.kind]}: ${i.title}, de ${hhmm(i.start)} a ${hhmm(i.end % 1440)}${i.conflict ? '. Se solapa con otro elemento' : ''}${i.imported ? '. Importado' : ''}`;
             return (
               <Pressable
                 key={i.key}
@@ -97,7 +97,7 @@ export function DayTimeline({
                   {i.conflict ? <AlertTriangle size={12} color={colors.warning} /> : i.kind === 'focus' ? <Timer size={12} color={colors.success} /> : null}
                   <Text variant="caption" numberOfLines={compact ? 1 : 2} style={styles.blockTitle}>{i.title}</Text>
                 </View>
-                {!compact && height > 36 ? <Text variant="caption" tone="tertiary" tabular>{hhmm(i.start)}–{hhmm(i.end % 1440)}</Text> : null}
+                {!compact && height > 36 ? <Text variant="caption" tone="tertiary" tabular>{i.due ? `Vence ${hhmm(i.start)}` : `${hhmm(i.start)}–${hhmm(i.end % 1440)}`}</Text> : null}
               </Pressable>
             );
           })}

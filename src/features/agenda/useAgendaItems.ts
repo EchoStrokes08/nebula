@@ -1,7 +1,8 @@
+import { dueTaskSlots } from '@/domain/calendar/dueTasks';
 import { expandEvents, localMinutes } from '@/domain/calendar/expand';
 import { findConflicts } from '@/domain/planning/intervals';
 import { useTasks } from '@/features/tasks/hooks';
-import { useTimeZone } from '@/features/habits/useToday';
+import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { dayKeyOf, dayRange, type DayKey } from '@/lib/dates';
 
 import { useEvents, useFocusSessions } from './hooks';
@@ -19,12 +20,17 @@ export interface AgendaItem {
   allDay: boolean;
   category?: string;
   imported?: boolean;
+  /** Tarea mostrada por su fecha límite (no es un bloque planificado). */
+  due?: boolean;
+  /** Tarea vencida y pendiente, repetida en el día de hoy. */
+  overdue?: boolean;
   conflict: boolean;
 }
 
 /** Elementos de la agenda entre dos días (incl.) en la zona del usuario, con conflictos marcados. */
 export function useAgendaItems(from: DayKey, to: DayKey) {
   const tz = useTimeZone();
+  const today = useToday();
   const events = useEvents();
   const tasks = useTasks();
   const focus = useFocusSessions();
@@ -49,6 +55,11 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
     if (!t.scheduledStart || !t.scheduledEnd || t.status === 'cancelled') continue;
     pushSpan({ key: `t-${t.id}`, kind: 'task', refId: t.id, title: t.title, allDay: false }, new Date(t.scheduledStart), new Date(t.scheduledEnd));
   }
+  // Tareas con fecha límite y sin bloque planificado: se ven el día en que vencen.
+  // Las vencidas pendientes se repiten hoy para que no se pierdan.
+  for (const s of dueTaskSlots(tasks.data ?? [], from, to, today)) {
+    items.push({ key: `${s.overdue ? 'v' : 'd'}-${s.id}`, kind: 'task', refId: s.id, title: s.title, day: s.day, start: s.start, end: s.end, allDay: s.allDay, due: true, overdue: s.overdue, conflict: false });
+  }
   for (const f of focus.data ?? []) {
     if (!f.endedAt || f.focusedSeconds < 60) continue;
     pushSpan({ key: `f-${f.id}`, kind: 'focus', refId: f.id, title: 'Sesión de enfoque', allDay: false }, new Date(f.startedAt), new Date(f.endedAt));
@@ -56,7 +67,7 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
 
   // Conflictos: eventos o bloques planificados que se solapan (no se marcan sesiones ya hechas).
   for (const day of dayRange(from, to)) {
-    const candidates = items.filter((i) => i.day === day && !i.allDay && i.kind !== 'focus');
+    const candidates = items.filter((i) => i.day === day && !i.allDay && i.kind !== 'focus' && !i.due);
     for (const [a, b] of findConflicts(candidates.map((i) => ({ id: i.key, start: i.start, end: i.end })))) {
       for (const i of items) if (i.key === a.id || i.key === b.id) i.conflict = true;
     }

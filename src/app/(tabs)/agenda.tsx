@@ -15,7 +15,6 @@ import { useAgendaItems } from '@/features/agenda/useAgendaItems';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
 import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { useMyProfile } from '@/features/profile/useMyProfile';
-import { useTasks } from '@/features/tasks/hooks';
 import { TaskListView } from '@/features/tasks/TaskListView';
 import { TaskDetail } from '@/features/tasks/TaskDetail';
 import { setSplitActive, SPLIT_MIN_WIDTH, useSplit } from '@/features/system/split';
@@ -33,7 +32,7 @@ const VIEWS: { v: View_; l: string }[] = [
   { v: 'tareas', l: 'Tareas' },
 ];
 const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const FILTER_LABEL: Record<string, string> = { trabajo: 'Trabajo', estudio: 'Estudio', personal: 'Personal', salud: 'Salud', social: 'Social', otro: 'Otros', task: 'Tareas planificadas', focus: 'Enfoque' };
+const FILTER_LABEL: Record<string, string> = { trabajo: 'Trabajo', estudio: 'Estudio', personal: 'Personal', salud: 'Salud', social: 'Social', otro: 'Otros', task: 'Tareas', focus: 'Enfoque' };
 
 export default function AgendaScreen() {
   const today = useToday();
@@ -57,7 +56,6 @@ export default function AgendaScreen() {
   const filterKey = (i: { kind: string; category?: string }) => (i.kind === 'event' ? (i.category ?? 'otro') : i.kind);
   const items = allItems.filter((i) => !hidden.includes(filterKey(i)));
   const present = [...new Set(allItems.map(filterKey))];
-  const tasks = useTasks();
   const nowMinutes = localMinutes(new Date(), tz);
 
   const shift = (n: number) => setDay(view === 'semana' ? addDays(day, 7 * n) : view === 'mes' ? addDays(startOfMonth(addDays(monthStart, n > 0 ? 32 : -1)), 0) : addDays(day, n));
@@ -68,10 +66,9 @@ export default function AgendaScreen() {
         ? new Intl.DateTimeFormat('es', { month: 'long', year: 'numeric' }).format(new Date(`${monthStart}T12:00:00Z`))
         : formatDay(day, today);
 
-  // Marcadores del mes: eventos + tareas con fecha.
+  // Marcadores del mes: eventos y tareas (planificadas o por fecha límite).
   const markers: Record<string, number> = {};
   for (const i of items) markers[i.day] = (markers[i.day] ?? 0) + 1;
-  for (const t of tasks.data ?? []) if (t.dueDate && t.status !== 'done' && t.status !== 'cancelled') markers[t.dueDate] = (markers[t.dueDate] ?? 0) + 1;
 
   const screen = (
     <Screen
@@ -157,17 +154,17 @@ export default function AgendaScreen() {
               </View>
               <View style={styles.monthList}>
                 <Text variant="title3">{formatDay(day, today)}</Text>
-                {items.filter((i) => i.day === day).length === 0 && !(tasks.data ?? []).some((t) => t.dueDate === day && t.status !== 'done') ? <Text tone="secondary">Sin nada ese día.</Text> : null}
+                {items.filter((i) => i.day === day).length === 0 ? <Text tone="secondary">Sin nada ese día.</Text> : null}
                 {items.filter((i) => i.day === day).map((i) => (
                   <Pressable key={i.key} onPress={() => openItem(i)} style={styles.monthItem} accessibilityRole="button">
-                    <Text variant="caption" tone="tertiary" tabular>{i.allDay ? 'Todo el día' : `${hhmm(i.start)}–${hhmm(i.end % 1440)}`}</Text>
+                    {i.overdue ? (
+                      <Text variant="caption" tone="danger">Vencida</Text>
+                    ) : i.due ? (
+                      <Text variant="caption" tone="warning" tabular>{i.allDay ? 'Vence' : `Vence a las ${hhmm(i.start)}`}</Text>
+                    ) : (
+                      <Text variant="caption" tone="tertiary" tabular>{i.allDay ? 'Todo el día' : `${hhmm(i.start)}–${hhmm(i.end % 1440)}`}</Text>
+                    )}
                     <Text variant="bodyStrong" numberOfLines={1}>{i.title}</Text>
-                  </Pressable>
-                ))}
-                {(tasks.data ?? []).filter((t) => t.dueDate === day && t.status !== 'done' && t.status !== 'cancelled').map((t) => (
-                  <Pressable key={t.id} onPress={() => router.push({ pathname: '/tarea/[id]', params: { id: t.id } })} style={styles.monthItem} accessibilityRole="button">
-                    <Text variant="caption" tone="warning">Vence</Text>
-                    <Text variant="bodyStrong" numberOfLines={1}>{t.title}</Text>
                   </Pressable>
                 ))}
               </View>
