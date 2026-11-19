@@ -31,6 +31,9 @@ const SUPABASE_STUB = `
   alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
   alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+  -- Como en Supabase: las tablas publicadas para Realtime necesitan identidad de réplica
+  -- (clave primaria) o Postgres rechaza cualquier UPDATE sobre ellas, incluidos los de cascada.
+  create publication supabase_realtime;
 `;
 
 export async function createTestDb(): Promise<PGlite> {

@@ -37,6 +37,21 @@ describe('eliminar cuenta (F03-011)', () => {
     expect(results).toEqual([{ user_id: null }, { user_id: ben }]);
   });
 
+  it('borra una cuenta recién creada y sin datos (como hace account-delete)', async () => {
+    const ana = await createUser(db, { handle: 'vacia' });
+    await db.query('delete from auth.users where id = $1', [ana]);
+    expect((await db.query('select 1 from public.profiles where id = $1', [ana])).rows).toHaveLength(0);
+  });
+
+  it('borra una sesión de enfoque enlazada a un hábito y a una tarea propios', async () => {
+    const ana = await createUser(db, { handle: 'enfoque' });
+    const h = (await db.query<{ id: string }>(`insert into public.habits (user_id, name, kind) values ($1, 'Leer', 'binary') returning id`, [ana])).rows[0]!.id;
+    const t = (await db.query<{ id: string }>(`insert into public.tasks (user_id, title) values ($1, 'x') returning id`, [ana])).rows[0]!.id;
+    await db.query(`insert into public.focus_sessions (user_id, mode, planned_minutes, started_at, habit_id, task_id) values ($1, 'pomodoro', 25, now(), $2, $3)`, [ana, h, t]);
+    await db.query('delete from auth.users where id = $1', [ana]);
+    expect((await db.query('select 1 from public.focus_sessions where user_id = $1', [ana])).rows).toHaveLength(0);
+  });
+
   it('un anónimo no puede ejecutarla', async () => {
     await expect(
       db.transaction(async (tx) => {
