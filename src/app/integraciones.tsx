@@ -10,6 +10,7 @@ import { canReadDeviceCalendar, readDeviceCalendar } from '@/platform/calendar';
 import { useAuth } from '@/features/auth/session';
 import { confirmAction } from '@/lib/confirm';
 import { GoogleCalendarBar } from '@/features/agenda/GoogleCalendarBar';
+import { forgetGoogleCalendar } from '@/features/agenda/google';
 
 export default function Integraciones() {
   const uid = useAuth((s) => s.session?.user.id); const qc = useQueryClient();
@@ -37,6 +38,6 @@ export default function Integraciones() {
     {message ? <Text accessibilityLiveRegion="polite">{message}</Text> : null}
     <Text variant="title3">Calendarios importados</Text>
     {list.isError ? <Button label="Reintentar cargar integraciones" onPress={() => void list.refetch()} /> : null}
-    {(list.data ?? []).map((item) => <Button key={item.id} label={`Quitar ${item.name} y sus eventos`} variant="danger" onPress={() => confirmAction('Quitar calendario', 'Se eliminarán los eventos importados de Nebula. Tu calendario de origen se conserva.', 'Quitar', () => { void (async () => { try { unwrap(await db().from('integrations').delete().eq('id', item.id)); await qc.invalidateQueries(); } catch { setMessage('No se pudo quitar el calendario.'); } })(); })} />)}
+    {(list.data ?? []).map((item) => <Button key={item.id} label={`Quitar ${item.name} y sus eventos`} variant="danger" onPress={() => confirmAction('Quitar calendario', 'Se eliminarán los eventos importados de Nebula. Tu calendario de origen se conserva.', 'Quitar', () => { void (async () => { try { unwrap(await db().from('integrations').delete().eq('id', item.id)); if (item.provider === 'google') await forgetGoogleCalendar(); await qc.invalidateQueries(); } catch { setMessage('No se pudo quitar el calendario.'); } })(); })} />)}
   </Screen>;
 }

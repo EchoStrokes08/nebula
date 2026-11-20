@@ -22,8 +22,8 @@ import { oauth } from '@/platform/oauth';
  * OAuth propio (EXPO_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID) cuyo retorno es una página de Nebula en
  * GitHub Pages, no el dominio de Supabase: así Google puede verificar la app y no muestra el aviso
  * «Google no verificó esta app». Sin ese cliente se usa el flujo anterior (inicio de sesión de
- * Supabase con el permiso extra). El token dura ~1 h: cada sincronización usa el vigente o vuelve
- * a pedirlo. La resincronización automática usa el intervalo de Ajustes. Los eventos se importan como copia y los borrados en Google desaparecen al resincronizar.
+ * Supabase con el permiso extra). El token dura ~1 h; con el flujo de Supabase, el permiso renovable
+ * queda en el servidor (función google-calendar) y da tokens nuevos sin volver a abrir Google. La resincronización automática usa el intervalo de Ajustes. Los eventos se importan como copia y los borrados en Google desaparecen al resincronizar.
  */
 export const GOOGLE_CALENDAR_NAME = 'Google Calendar';
 const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -103,9 +103,58 @@ async function storedToken(): Promise<string | null> {
 
 async function forgetToken() { await AsyncStorage.removeItem(TOKEN).catch(() => {}); }
 
-/** Token vigente: el del cliente propio o, con el flujo anterior, el que dejó el inicio de sesión. */
+async function rememberToken(token: string, expiresIn: number) {
+  // Margen de un minuto para no usar un token a punto de caducar.
+  const t: StoredToken = { token, expiresAt: Date.now() + Math.max(0, expiresIn - 60) * 1000 };
+  await AsyncStorage.setItem(TOKEN, JSON.stringify(t)).catch(() => {});
+}
+
+// ---- Permiso renovable en el servidor (función google-calendar) -----------------------------
+
+type ServerToken = { access_token: string; expires_in: number };
+
+/** Llama a la función del servidor; `null` si no está desplegada o configurada, o no hay permiso. */
+async function callServer(action: 'store' | 'token' | 'forget', extra: Record<string, unknown> = {}): Promise<ServerToken | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke<ServerToken>('google-calendar', { body: { action, ...extra } });
+    if (error || !data?.access_token) return null;
+    return data;
+  } catch { return null; }
+}
+
+/** Guarda en el servidor el permiso renovable que Google dio al conectar (si lo dio). */
+async function storeRefreshToken(refreshToken: string | null | undefined) {
+  if (!refreshToken) return;
+  const r = await callServer('store', { refresh_token: refreshToken });
+  if (r) { serverMissAt = 0; await rememberToken(r.access_token, r.expires_in); }
+}
+
+/** Última vez que el servidor no tenía permiso: evita preguntarle cada minuto en vano. */
+let serverMissAt = 0;
+const SERVER_RETRY_MS = 10 * 60_000;
+
+/** Token nuevo a partir del permiso renovable guardado en el servidor, sin abrir el navegador. */
+async function serverToken(): Promise<string | null> {
+  if (Date.now() - serverMissAt < SERVER_RETRY_MS) return null;
+  const r = await callServer('token');
+  if (!r) { serverMissAt = Date.now(); return null; }
+  await rememberToken(r.access_token, r.expires_in);
+  return r.access_token;
+}
+
+/** Olvida el permiso renovable (al quitar Google Calendar de las integraciones). */
+export async function forgetGoogleCalendar() {
+  await forgetToken();
+  await callServer('forget');
+}
+
+/**
+ * Token vigente: el guardado en el dispositivo, uno renovado por el servidor o, con el flujo
+ * anterior, el que dejó el inicio de sesión.
+ */
 async function currentToken(): Promise<string | null> {
-  return (await storedToken()) ?? (CLIENT_ID ? null : useAuth.getState().session?.provider_token ?? null);
+  return (await storedToken()) ?? (await serverToken()) ?? (CLIENT_ID ? null : useAuth.getState().session?.provider_token ?? null);
 }
 
 function target(): GoogleTarget {
@@ -189,6 +238,9 @@ async function finishConnect(before: { user: { id: string }; access_token: strin
   }
   const token = after?.provider_token;
   if (!token) throw new Error('Google no concedió acceso al calendario.');
+  await rememberToken(token, 3600);
+  // Con el permiso renovable en el servidor, la sincronización automática no caduca a la hora.
+  await storeRefreshToken(after?.provider_refresh_token);
   return syncGoogleCalendar(token);
 }
 
