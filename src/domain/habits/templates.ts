@@ -36,7 +36,7 @@ export const TEMPLATE_CATEGORIES: { id: TemplateCategory; label: string; emoji: 
   { id: 'hogar', label: 'Hogar', emoji: '🪴' },
   { id: 'social', label: 'Relaciones', emoji: '💞' },
   { id: 'cuidado', label: 'Cuidado personal', emoji: '🌸' },
-  { id: 'dejar', label: 'Dejar de…', emoji: '🕊️' },
+  { id: 'dejar', label: 'Malos hábitos', emoji: '🕊️' },
 ];
 
 const t = (category: TemplateCategory, list: Omit<HabitTemplate, 'category' | 'id'>[]): HabitTemplate[] =>
