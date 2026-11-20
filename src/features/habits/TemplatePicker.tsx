@@ -81,7 +81,7 @@ export function TemplatePicker({ onPick, onScratch }: { onPick(t: HabitTemplate)
           >
             {on ? <View style={styles.indexBar} /> : null}
             <Text style={styles.emoji}>{c.emoji}</Text>
-            <Text variant="bodyStrong" numberOfLines={1} style={[styles.flex, { color: on ? colors.star : colors.textSecondary }]}>{c.label}</Text>
+            <Text variant="bodyStrong" style={[styles.flex, { color: on ? colors.star : colors.textSecondary }]}>{c.label}</Text>
             <Text variant="caption" tabular style={{ color: on ? colors.star : colors.textTertiary }}>{templateCount(c.id)}</Text>
           </Pressable>
         );
@@ -100,7 +100,7 @@ export function TemplatePicker({ onPick, onScratch }: { onPick(t: HabitTemplate)
             style={({ pressed }) => [styles.pill, on && styles.pillOn, pressed && styles.pressed]}
           >
             <Text style={styles.emoji}>{c.emoji}</Text>
-            <Text variant="bodyStrong" numberOfLines={1} style={{ color: on ? colors.star : colors.textSecondary }}>{c.label}</Text>
+            <Text variant="bodyStrong" style={[styles.pillLabel, { color: on ? colors.star : colors.textSecondary }]}>{c.label}</Text>
             <Text variant="caption" tabular style={[styles.pillCount, on && styles.pillCountOn]}>{templateCount(c.id)}</Text>
           </Pressable>
         );
@@ -169,7 +169,8 @@ const styles = StyleSheet.create({
   search: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], minHeight: 48, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong },
   searchInput: { flex: 1, color: colors.text, fontFamily: fontFamily.regular, fontSize: 16, paddingVertical: spacing[3], outlineStyle: 'none' } as object,
   emoji: { fontSize: 18, lineHeight: 22 },
-  pill: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], height: 42, paddingLeft: spacing[3], paddingRight: spacing[2], borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  pill: { flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[2], height: 42, paddingLeft: spacing[3], paddingRight: spacing[2], borderRadius: radius.pill, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  pillLabel: { flexShrink: 0 },
   pillOn: { backgroundColor: colors.starMuted, borderColor: 'rgba(244, 221, 176, 0.55)' },
   pillCount: { minWidth: 24, paddingHorizontal: 6, paddingVertical: 2, borderRadius: radius.pill, textAlign: 'center', overflow: 'hidden', color: colors.textTertiary, backgroundColor: 'rgba(199, 169, 255, 0.08)' },
   pillCountOn: { color: colors.bg, backgroundColor: colors.star },

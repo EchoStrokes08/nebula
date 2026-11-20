@@ -22,7 +22,7 @@ export function Rail({ children, gap = spacing[2], bleed = spacing[5], style, ac
   }
   return (
     <View style={[{ marginHorizontal: -bleed }, style]}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole={accessibilityRole} contentContainerStyle={[styles.row, { gap, paddingHorizontal: bleed }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole={accessibilityRole} contentContainerStyle={[styles.row, { gap, paddingLeft: bleed, paddingRight: bleed + spacing[6] }]}>
         {children}
       </ScrollView>
       <LinearGradient pointerEvents="none" colors={['rgba(11, 8, 21, 0)', colors.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={[styles.fade, { width: bleed + spacing[6] }]} />
