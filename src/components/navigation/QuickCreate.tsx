@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { Flame, Plus, Quote, SquareCheck, Target, X, type LucideIcon } from 'lucide-react-native';
+import { BookHeart, Flame, Plus, Quote, SquareCheck, Target, X, type LucideIcon } from 'lucide-react-native';
 import { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
@@ -13,11 +13,12 @@ export const CREATE_OPTIONS: { label: string; hint: string; icon: LucideIcon; co
   { label: 'Hábito', hint: 'Algo que repetir', icon: Flame, color: colors.warning, href: '/habito/nuevo' },
   { label: 'Tarea', hint: 'Algo que terminar', icon: SquareCheck, color: colors.info, href: '/tarea/nueva' },
   { label: 'Meta', hint: 'Un objetivo grande', icon: Target, color: colors.success, href: '/meta/nueva' },
+  { label: 'Diario', hint: 'Escribe cómo ha ido el día', icon: BookHeart, color: colors.accentSoft, href: '/diario' },
   { label: 'Motivación', hint: 'Tus frases y la de hoy', icon: Quote, color: '#E58FD0', href: '/motivacion' },
 ];
 
 /**
- * Botón «+»: abre un menú con lo que se puede crear (hábito, tarea, meta, motivación).
+ * Botón «+»: abre un menú con lo que se puede crear (hábito, tarea, meta, diario, motivación).
  * La nota rápida tiene su propio acceso (Hoy y Ctrl K), así que aquí no se repite.
  */
 export function QuickCreate({ layout }: { layout: 'sidebar' | 'floating' }) {
@@ -37,7 +38,7 @@ export function QuickCreate({ layout }: { layout: 'sidebar' | 'floating' }) {
         accessibilityRole="menu"
         aria-label="Crear"
       >
-        <Text variant="overline" tone="tertiary" style={styles.menuTitle}>CREAR</Text>
+        <Text variant="overline" style={styles.menuTitle}>✦  CREAR</Text>
         {CREATE_OPTIONS.map((o) => (
           <Pressable
             key={o.label}
@@ -73,7 +74,7 @@ export function QuickCreate({ layout }: { layout: 'sidebar' | 'floating' }) {
           onPress={toggle}
           accessibilityRole="button"
           accessibilityLabel="Crear"
-          accessibilityHint="Abre un menú para crear un hábito, una tarea, una meta o ver tu motivación"
+          accessibilityHint="Abre un menú para crear un hábito, una tarea, una meta, escribir en el diario o ver tu motivación"
           accessibilityState={{ expanded: open }}
           style={(s: { hovered?: boolean; focused?: boolean; pressed: boolean }) => [styles.side, (s.hovered || s.pressed) && styles.sideHover, s.focused && Platform.OS === 'web' && styles.focus]}
         >
@@ -107,7 +108,7 @@ const styles = StyleSheet.create({
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: colors.overlay },
   menu: { position: 'absolute', width: 260, padding: spacing[2], gap: 2, borderRadius: radius.lg, backgroundColor: colors.cardRaised, borderWidth: 1, borderColor: colors.borderStrong, ...elevation.glow },
   menuSide: { left: spacing[3], top: 112 },
-  menuTitle: { paddingHorizontal: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[1] },
+  menuTitle: { color: colors.star, paddingHorizontal: spacing[3], paddingTop: spacing[2], paddingBottom: spacing[1] },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md },
   itemHover: { backgroundColor: colors.surfacePressed },
   itemIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
