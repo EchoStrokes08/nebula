@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { CheckSquare, ChevronRight, Flame, KeyRound, RotateCcw, Sun } from 'lucide-react-native';
+import { CheckSquare, ChevronRight, Flame, KeyRound, Leaf, RotateCcw, Sun } from 'lucide-react-native';
 import { SectionHeader } from '@/components/layout/SectionHeader';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -24,6 +24,7 @@ import { TaskRow } from '@/features/tasks/TaskRow';
 import { analyzeDag } from '@/domain/tasks/dag';
 import { SkeletonList } from '@/components/feedback/Skeleton';
 import { QuickActionsRow } from '@/features/home/QuickActionsRow';
+import { EssentialDay, useEssentialMode } from '@/features/home/EssentialDay';
 import { NotesBoard } from '@/features/notes/PostIt';
 import { useMyProfile } from '@/features/profile/useMyProfile';
 
@@ -62,6 +63,16 @@ export default function HoyScreen() {
   const reduced = useReducedMotion();
   // Entrada escalonada de los bloques (sin movimiento si el sistema lo pide).
   const enter = (i: number) => (reduced ? undefined : FadeInDown.duration(420).delay(60 + i * 70));
+  const [essential, setEssential] = useEssentialMode(today);
+
+  if (essential && summaries) {
+    return (
+      <Screen title={helloTitle} titleAccent={helloAccent} overline={dayLabel(today)}>
+        <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
+        <EssentialDay habits={forToday} tasks={allTasks} today={today} onExit={() => setEssential(false)} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen title={helloTitle} titleAccent={helloAccent} overline={dayLabel(today)}>
@@ -79,6 +90,9 @@ export default function HoyScreen() {
             ]}
           />
         </Animated.View>
+      ) : null}
+      {forToday.length || todayTasks.length ? (
+        <Button label="¿Día difícil? Ver solo lo esencial" variant="ghost" icon={<Leaf size={16} color={colors.success} />} onPress={() => setEssential(true)} />
       ) : null}
       <NotificationPrompt />
       <QuickActionsRow />

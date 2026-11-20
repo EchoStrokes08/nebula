@@ -11,7 +11,6 @@ import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
 import { atLocal, localMinutes } from '@/domain/calendar/expand';
-import { analyzeDag } from '@/domain/tasks/dag';
 import { planDay, type PlanTask } from '@/domain/planning/scheduler';
 import { overload, viableDay, type ViableMode } from '@/domain/planning/viableDay';
 import { useAgendaMutation, useAvailability } from '@/features/agenda/hooks';
@@ -20,6 +19,7 @@ import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { usePreferences } from '@/features/profile/usePreferences';
 import { updateTask } from '@/features/tasks/api';
 import { useTasks } from '@/features/tasks/hooks';
+import { DEFAULT_ESTIMATE, toPlanTasks } from '@/features/tasks/planTasks';
 import { addDays, diffDays, isDayKey, type DayKey } from '@/lib/dates';
 import { formatDuration, hhmm, minutesOf } from '@/lib/time';
 
@@ -32,10 +32,9 @@ const DEFAULT_WINDOWS = [
   { start: 9 * 60, end: 13 * 60 },
   { start: 15 * 60, end: 19 * 60 },
 ];
-const DEFAULT_ESTIMATE = 30;
 
 export default function Planificar() {
-  const params = useLocalSearchParams<{ dia?: string }>();
+  const params = useLocalSearchParams<{ dia?: string; desde?: string }>();
   const today = useToday();
   const day = (params.dia && isDayKey(params.dia) ? params.dia : today) as DayKey;
   const tz = useTimeZone();
@@ -63,23 +62,11 @@ export default function Planificar() {
   const available = usingDefault ? DEFAULT_WINDOWS : windows;
   const busy = items.filter((i) => !i.allDay && i.kind !== 'focus').map((i) => ({ start: i.start, end: i.end }));
   const all = tasks.data ?? [];
-  const dag = analyzeDag(all.map((t) => ({ id: t.id, done: t.status === 'done' || t.status === 'cancelled' })), all.flatMap((t) => t.dependsOn.map((d) => ({ taskId: t.id, dependsOn: d }))));
-  const candidates: PlanTask[] = all
-    .filter((t) => (t.status === 'todo' || t.status === 'in_progress') && !t.scheduledStart && (!t.dueDate || diffDays(day, t.dueDate) <= 7))
-    .map((t) => ({
-      id: t.id,
-      title: t.title,
-      minutes: t.estimateMinutes ?? DEFAULT_ESTIMATE,
-      priority: t.priority,
-      daysToDue: t.dueDate ? diffDays(day, t.dueDate) : null,
-      unlocks: dag.unlocks.get(t.id) ?? 0,
-      pendingPrereqs: t.dependsOn.filter((d) => {
-        const p = all.find((x) => x.id === d);
-        return p && p.status !== 'done' && p.status !== 'cancelled';
-      }),
-    }));
+  const candidates: PlanTask[] = toPlanTasks(all, day, (t) => !t.scheduledStart && (!t.dueDate || diffDays(day, t.dueDate) <= 7));
   const preferred = (prefs.data?.focusWindows ?? []).map((w) => ({ start: minutesOf(w.start), end: minutesOf(w.end) }));
-  const notBefore = day === today ? Math.ceil(localMinutes(new Date(), tz) / 5) * 5 : undefined;
+  // `desde` (HH:MM): el asistente pide reorganizar a partir de una hora («reorganiza mi tarde»).
+  const from = params.desde && /^\d{2}:\d{2}$/.test(params.desde) ? minutesOf(params.desde) : 0;
+  const notBefore = day === today ? Math.ceil(Math.max(localMinutes(new Date(), tz), from) / 5) * 5 : from || undefined;
   const capacity = planDay([], available, busy, { notBefore }).availableMinutes;
   const viable = viableDay(candidates, capacity, mode);
   const plan = planDay(candidates.filter((c) => viable.keep.includes(c.id)), available, busy, { notBefore, preferred, minChunk: Number.POSITIVE_INFINITY });
