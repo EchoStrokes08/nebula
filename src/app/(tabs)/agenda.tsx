@@ -155,7 +155,7 @@ export default function AgendaScreen() {
           {view === 'mes' ? (
             <View style={styles.month}>
               <View style={styles.monthCal}>
-                <MonthCalendar key={monthStart} value={day} today={today} weekStartsOn={weekStartsOn} onChange={setDay} markers={markers} />
+                <MonthCalendar key={monthStart} value={day} today={today} weekStartsOn={weekStartsOn} onChange={setDay} markers={markers} showHeader={false} />
               </View>
               <View style={styles.monthList}>
                 <Text variant="title3">{formatDay(day, today)}</Text>

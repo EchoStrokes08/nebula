@@ -22,10 +22,12 @@ export interface MonthCalendarProps {
   onChange(day: DayKey): void;
   /** Marca de carga por día (p. ej. nº de pendientes) para la vista mensual de la agenda. */
   markers?: Record<string, number>;
+  /** Cabecera con el mes y flechas propias. La agenda la oculta porque ya navega por meses arriba. */
+  showHeader?: boolean;
 }
 
 /** Calendario mensual accesible (cada día es un botón con su fecha completa como etiqueta). */
-export function MonthCalendar({ value, today, weekStartsOn = 1, onChange, markers }: MonthCalendarProps) {
+export function MonthCalendar({ value, today, weekStartsOn = 1, onChange, markers, showHeader = true }: MonthCalendarProps) {
   const [month, setMonth] = useState<DayKey>(startOfMonth(value ?? today));
   const first = startOfWeek(month, weekStartsOn);
   const cells = Array.from({ length: 42 }, (_, i) => addDays(first, i));
@@ -33,7 +35,7 @@ export function MonthCalendar({ value, today, weekStartsOn = 1, onChange, marker
   const fmt = new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      {showHeader ? <View style={styles.header}>
         <Pressable onPress={() => setMonth(shiftMonth(month, -1))} accessibilityRole="button" accessibilityLabel="Mes anterior" hitSlop={10} style={styles.nav}>
           <ChevronLeft size={20} color={colors.textSecondary} />
         </Pressable>
@@ -43,7 +45,7 @@ export function MonthCalendar({ value, today, weekStartsOn = 1, onChange, marker
         <Pressable onPress={() => setMonth(shiftMonth(month, 1))} accessibilityRole="button" accessibilityLabel="Mes siguiente" hitSlop={10} style={styles.nav}>
           <ChevronRight size={20} color={colors.textSecondary} />
         </Pressable>
-      </View>
+      </View> : null}
       <View style={styles.row}>
         {Array.from({ length: 7 }, (_, i) => (
           <Text key={i} variant="caption" tone="tertiary" style={styles.dow}>
