@@ -12,6 +12,7 @@ import { glassBlur } from '@/components/primitives/Card';
 import { QuickActions } from '@/platform/QuickActions';
 import { colors, fontFamily, hitTarget, spacing } from '@/design/tokens';
 import { useSocialRealtime } from '@/features/notifications/realtime';
+import { usePushRegistration } from '@/features/notifications/usePushRegistration';
 import { useReminderSync } from '@/features/notifications/useReminderSync';
 import { useTimezoneSync } from '@/features/profile/useTimezoneSync';
 import { useGoogleCalendarAutoSync } from '@/features/agenda/google';
@@ -45,6 +46,7 @@ export default function TabsLayout() {
   useTimezoneSync();
   useReminderSync();
   useSocialRealtime();
+  usePushRegistration();
   const toast = useToast((t) => t.show);
   useGoogleCalendarAutoSync(toast);
 

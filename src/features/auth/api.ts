@@ -2,6 +2,7 @@ import * as Linking from 'expo-linking';
 
 import { supabase } from '@/data/supabase';
 import { markIntentionalSignOut } from '@/features/auth/session';
+import { unregisterPush } from '@/platform/push';
 
 function client() {
   if (!supabase) throw new Error('Supabase no está configurado');
@@ -66,6 +67,7 @@ export async function updatePassword(password: string) {
 }
 
 export async function signOut() {
+  await unregisterPush();
   markIntentionalSignOut();
   const { error } = await client().auth.signOut();
   if (error) throw error;

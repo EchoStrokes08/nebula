@@ -24,7 +24,13 @@ let openHandler: ((route: string) => void) | null = null;
 export const notifications: NotificationsAdapter = {
   async init() {
     Notifications.setNotificationHandler({
-      handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
+      // Con la app abierta, el aviso social ya llega por tiempo real: el push no se repite.
+      handleNotification: async (n) => {
+        const push = (n.request.trigger as { type?: string } | null)?.type === 'push';
+        return push
+          ? { shouldShowBanner: false, shouldShowList: false, shouldPlaySound: false, shouldSetBadge: false }
+          : { shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false };
+      },
     });
     for (const [id, c] of Object.entries(CHANNELS)) {
       await Notifications.setNotificationChannelAsync(id, { name: c.name, importance: c.importance, lightColor: '#8055E8' });
@@ -32,7 +38,9 @@ export const notifications: NotificationsAdapter = {
     // Tocar una notificación abre su pantalla (también si la app estaba cerrada).
     const open = (r: Notifications.NotificationResponse | null) => {
       if (!r) return;
-      openHandler?.(routeForNotification(r.notification.request.identifier));
+      // Los push de FCM traen la pantalla en `data.route`; los locales, en su identificador.
+      const route = (r.notification.request.content.data as { route?: unknown } | null)?.route;
+      openHandler?.(typeof route === 'string' && route.startsWith('/') ? route : routeForNotification(r.notification.request.identifier));
       // Evita volver a abrir la misma notificación en el siguiente arranque.
       try { Notifications.clearLastNotificationResponse(); } catch { /* no disponible */ }
     };

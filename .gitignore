@@ -54,3 +54,6 @@ release/
 test-results/
 playwright-report/
 .pages-dist/
+
+# Firebase (push): configuración del proyecto, fuera del repositorio público
+google-services.json
