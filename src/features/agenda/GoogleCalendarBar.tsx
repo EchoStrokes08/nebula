@@ -8,7 +8,9 @@ import { colors, radius, spacing } from '@/design/tokens';
 import { db, unwrap } from '@/data/db';
 import { useAuth } from '@/features/auth/session';
 
-import { useGoogleCalendar } from './google';
+import { SYNC_INTERVALS } from '@/domain/integrations/autoSync';
+
+import { hasGoogleToken, useGoogleCalendar, useGoogleSyncInterval } from './google';
 
 /** Conectar o resincronizar Google Calendar desde la agenda o Integraciones. */
 export function GoogleCalendarBar({ detailed = false }: { detailed?: boolean }) {
@@ -20,6 +22,13 @@ export function GoogleCalendarBar({ detailed = false }: { detailed?: boolean }) 
     queryFn: async () => (unwrap(await db().from('integrations').select('last_imported_at').eq('provider', 'google').limit(1)) as { last_imported_at: string | null }[])[0] ?? null,
   });
   const connected = !!state.data;
+  const interval = useGoogleSyncInterval();
+  const token = useQuery({ queryKey: ['google-token'], enabled: connected, networkMode: 'always', queryFn: hasGoogleToken });
+  const every = SYNC_INTERVALS.find((o) => o.minutes === interval.minutes)?.label ?? '';
+  const auto = !connected ? null
+    : interval.minutes === 0 ? 'Sincronización automática desactivada (Ajustes).'
+    : token.data === false ? `Toca Sincronizar para renovar el permiso de Google y seguir sincronizando cada ${every}.`
+    : `Se sincroniza sola cada ${every}. Puedes cambiarlo en Ajustes.`;
   const last = state.data?.last_imported_at ? new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(state.data.last_imported_at)) : null;
   return (
     <View style={styles.bar}>
@@ -33,6 +42,7 @@ export function GoogleCalendarBar({ detailed = false }: { detailed?: boolean }) 
         </View>
         <Button label={connected ? 'Sincronizar' : 'Conectar'} variant={connected ? 'ghost' : 'secondary'} loading={google.busy} onPress={() => void google.run()} />
       </View>
+      {auto ? <Text variant="caption" tone={token.data === false && interval.minutes ? 'warning' : 'tertiary'}>{auto}</Text> : null}
       {google.message ? <Text variant="caption" tone="secondary" accessibilityLiveRegion="polite">{google.message}</Text> : null}
     </View>
   );

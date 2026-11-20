@@ -1,12 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 
 import { db, unwrap } from '@/data/db';
 import { supabase } from '@/data/supabase';
+import { DEFAULT_SYNC_MINUTES, parseSyncMinutes, syncDue } from '@/domain/integrations/autoSync';
 import { chunks, mapGoogleEvents, type GoogleEvent } from '@/domain/integrations/google';
 import { buildGoogleAuthUrl, grantedCalendar, makeState, parseGoogleRedirect, parseState, type GoogleTarget } from '@/domain/integrations/googleOAuth';
 import type { ImportedEvent } from '@/domain/integrations/ics';
@@ -22,7 +23,7 @@ import { oauth } from '@/platform/oauth';
  * GitHub Pages, no el dominio de Supabase: así Google puede verificar la app y no muestra el aviso
  * «Google no verificó esta app». Sin ese cliente se usa el flujo anterior (inicio de sesión de
  * Supabase con el permiso extra). El token dura ~1 h: cada sincronización usa el vigente o vuelve
- * a pedirlo. Los eventos se importan como copia y los borrados en Google desaparecen al resincronizar.
+ * a pedirlo. La resincronización automática usa el intervalo de Ajustes. Los eventos se importan como copia y los borrados en Google desaparecen al resincronizar.
  */
 export const GOOGLE_CALENDAR_NAME = 'Google Calendar';
 const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -209,9 +210,37 @@ export async function refreshGoogleCalendar(): Promise<ConnectOutcome> {
   return connectGoogleCalendar();
 }
 
+const INTERVAL = 'nebula-google-calendar-interval';
+
+/** Intervalo de sincronización automática elegido en este dispositivo (minutos; 0 = nunca). */
+export async function getGoogleSyncMinutes(): Promise<number> {
+  return parseSyncMinutes(await AsyncStorage.getItem(INTERVAL).catch(() => null));
+}
+
+/** Preferencia «Sincronizar cada…» de Ajustes. Al cambiarla, la app la aplica sin reiniciar. */
+export function useGoogleSyncInterval() {
+  const qc = useQueryClient();
+  const query = useQuery({ queryKey: ['google-sync-interval'], networkMode: 'always', staleTime: Infinity, queryFn: getGoogleSyncMinutes });
+  const set = async (minutes: number) => {
+    await AsyncStorage.setItem(INTERVAL, String(minutes));
+    qc.setQueryData(['google-sync-interval'], minutes);
+  };
+  return { minutes: query.data ?? DEFAULT_SYNC_MINUTES, set };
+}
+
+/** ¿Hay un permiso de Google vigente para sincronizar sin abrir el navegador? */
+export async function hasGoogleToken(): Promise<boolean> {
+  return !!(await currentToken());
+}
+
+/** Comprobación periódica mientras la app está abierta (el intervalo real lo marca la preferencia). */
+const TICK_MS = 60_000;
+
 /**
- * Montado en las pestañas: completa una conexión que volvió por redirección (navegador web) y,
- * mientras el token de Google siga vigente tras un inicio de sesión, resincroniza cada 30 min.
+ * Montado en las pestañas: completa una conexión que volvió por redirección (navegador web) y
+ * resincroniza sola con el intervalo elegido en Ajustes: al abrir la app, al volver a primer plano
+ * y mientras siga abierta. Solo usa el permiso vigente; si caducó, no abre el navegador por sorpresa
+ * (la barra de Google Calendar avisa para renovarlo con un toque).
  */
 export function useGoogleCalendarAutoSync(onDone?: (message: string) => void) {
   const qc = useQueryClient();
@@ -221,30 +250,35 @@ export function useGoogleCalendarAutoSync(onDone?: (message: string) => void) {
   useEffect(() => { notify.current = onDone; }, [onDone]);
   const userId = session?.user.id ?? null;
   const providerToken = session?.provider_token ?? null;
+  const { minutes } = useGoogleSyncInterval();
   useEffect(() => {
-    if (!userId || running.current || connecting) return;
+    if (!userId) return;
     let cancelled = false;
-    (async () => {
+    const tick = async () => {
+      if (running.current || connecting || cancelled) return;
       // Solo el flujo anterior vuelve por redirección con PENDING (el propio vuelve por /google-calendar).
       const pending = !CLIENT_ID && providerToken ? await AsyncStorage.getItem(PENDING).catch(() => null) : null;
       const last = Number(await AsyncStorage.getItem(LAST).catch(() => null)) || 0;
-      if (!pending && Date.now() - last < 30 * 60_000) return;
+      if (!pending && !syncDue(last, minutes)) return;
       const token = await currentToken();
-      if (!token || cancelled) return;
+      if (!token || cancelled) { if (!token) void qc.invalidateQueries({ queryKey: ['google-token'] }); return; }
       if (!pending && !(await hasGoogleCalendar().catch(() => false))) return;
-      if (cancelled) return;
+      if (cancelled || running.current) return;
       running.current = true;
       try {
         const count = pending ? await finishConnect(null) : await syncGoogleCalendar(token);
         await qc.invalidateQueries();
         if (pending) notify.current?.(`Google Calendar conectado: ${count} eventos.`);
       } catch (e) {
-        if (e instanceof GoogleTokenError) await forgetToken();
+        if (e instanceof GoogleTokenError) { await forgetToken(); void qc.invalidateQueries({ queryKey: ['google-token'] }); }
         if (pending) notify.current?.(e instanceof Error ? e.message : 'No se pudo sincronizar Google Calendar.');
       } finally { running.current = false; }
-    })();
-    return () => { cancelled = true; };
-  }, [userId, providerToken, qc]);
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), TICK_MS);
+    const sub = AppState.addEventListener('change', (state) => { if (state === 'active') void tick(); });
+    return () => { cancelled = true; clearInterval(timer); sub.remove(); };
+  }, [userId, providerToken, qc, minutes]);
 }
 
 /** Estado y acción para los botones «Conectar / Sincronizar Google Calendar». */

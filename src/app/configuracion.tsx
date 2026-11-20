@@ -22,6 +22,8 @@ import { confirmAction } from '@/lib/confirm';
 import { DesktopSettings } from '@/features/profile/DesktopSettings';
 import { SkyPicker } from '@/features/appearance/SkyPicker';
 import { DownloadApps } from '@/features/system/DownloadApps';
+import { useGoogleSyncInterval } from '@/features/agenda/google';
+import { SYNC_INTERVALS } from '@/domain/integrations/autoSync';
 import { spacing } from '@/design/tokens';
 
 export default function Configuracion() {
@@ -30,6 +32,7 @@ export default function Configuracion() {
   const prefs = usePreferences();
   const update = useUpdatePreferences();
   const qc = useQueryClient();
+  const sync = useGoogleSyncInterval();
   const [nameDraft, setName] = useState<string | null>(null); const name = nameDraft ?? profile.data?.display_name ?? '';
   const [handleDraft, setHandle] = useState<string | null>(null); const handle = handleDraft ?? profile.data?.handle ?? '';
   const [tzDraft, setTz] = useState<string | null>(null); const tz = tzDraft ?? profile.data?.timezone ?? '';
@@ -93,6 +96,10 @@ export default function Configuracion() {
       <Switch accessibilityLabel="Permitir asistente de IA" value={prefs.data.aiEnabled} disabled={update.isPending} onValueChange={(value) => update.mutate({ ai_enabled: value })} />
     </> : null}
     {update.isError ? <Text tone="danger">No se guardó el cambio. Reintenta.</Text> : null}
+    <Text variant="title2">Calendario</Text>
+    <Text tone="secondary">Cada cuánto se sincroniza tu horario de Google Calendar mientras Nebula está abierta (también al volver a la app). Se guarda en este dispositivo.</Text>
+    <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] }}>{SYNC_INTERVALS.map((o) => <Chip key={o.minutes} label={o.label} selected={sync.minutes === o.minutes} role="radio" onToggle={() => void sync.set(o.minutes).catch(() => setMessage('No se pudo guardar el intervalo.'))} />)}</View>
+    <Button label="Conectar o sincronizar ahora" variant="secondary" onPress={() => router.push('/integraciones')} />
     <Text variant="title2">Apariencia</Text>
     <Text tone="secondary">Elige el cielo de fondo. En automático cambia con la hora del día y cada día dibuja una galaxia distinta.</Text>
     <SkyPicker />
