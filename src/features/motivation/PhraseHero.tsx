@@ -11,7 +11,7 @@ const GRADIENT = ['#C9B6FF', '#E58FD0', '#7DF3FF'] as const;
  * (en el móvil no debe pasar de unas tres o cuatro líneas).
  */
 export function phraseSize(text: string, compact: boolean): { fontSize: number; lineHeight: number } {
-  const [large, medium, small] = compact ? [22, 20, 18] : [27, 24, 21];
+  const [large, medium, small] = compact ? [26, 23, 20] : [30, 27, 23];
   const size = text.length > 140 ? small : text.length > 90 ? medium : large;
   return { fontSize: size, lineHeight: Math.round(size * 1.25) };
 }
