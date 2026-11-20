@@ -68,6 +68,20 @@ export function syncPendingLogs(): Promise<void> {
   })();
   return syncing;
 }
+/**
+ * Sincroniza la cola de `uid` aunque la interfaz no esté abierta (widget en segundo plano).
+ * Con la app abierta con esa cuenta, delega en la sincronización normal.
+ */
+export async function flushPendingFor(uid: string): Promise<void> {
+  if (currentUser === uid) return syncPendingLogs();
+  if (!supabase) return;
+  await queue(uid).flush(async (log) => {
+    const { data } = await supabase!.auth.getSession();
+    if (data.session?.user.id !== uid) throw new Error('La sesión ha cambiado.');
+    if (log.op === 'delete') await deleteLogByAnyId(log.clientId);
+    else await insertLog({ ...log, dayKey: log.dayKey as DayKey });
+  }, () => currentUser === null || currentUser === uid);
+}
 const CACHED = new Set(['profile', 'preferences', 'habits', 'habit_logs', 'tasks', 'goals', 'events', 'availability', 'journal']);
 /** No se persisten tokens ni datos sociales. Cada cuenta tiene su propio espacio. */
 export function startOfflineRuntime() {

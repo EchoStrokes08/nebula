@@ -72,7 +72,25 @@
           ]
         }
       ],
-      "./plugins/withReleaseSigning"
+      "./plugins/withReleaseSigning",
+      [
+        "react-native-android-widget",
+        {
+          "widgets": [
+            {
+              "name": "Hoy",
+              "label": "Nebula · Hoy",
+              "description": "Tus hábitos de hoy. Tócalos para marcarlos.",
+              "minWidth": "250dp",
+              "minHeight": "180dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 3,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ]
     ],
     "scheme": "nebula",
     "backgroundColor": "#0B0815",

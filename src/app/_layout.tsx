@@ -28,6 +28,7 @@ import { ConfigRequired } from '@/features/system/ConfigRequired';
 import { resolveGate } from '@/features/system/gate';
 import { PreviewBadge } from '@/features/system/PreviewBadge';
 import { UpdateBanner } from '@/features/system/UpdateBanner';
+import { WidgetSync } from '@/features/widget/WidgetSync';
 import { UndoToast } from '@/components/overlays/UndoToast';
 import { ConfirmHost } from '@/components/overlays/ConfirmHost';
 import { clientEnv } from '@/lib/env';
@@ -85,6 +86,7 @@ export default function RootLayout() {
             <StatusBar style="light" />
             <OfflineBanner />
             <UpdateBanner />
+            <WidgetSync />
             {gate === 'config' ? (
               <ConfigRequired missing={clientEnv.ok ? [] : clientEnv.missing} />
             ) : (
