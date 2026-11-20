@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   hover: { borderColor: colors.accentBright },
   focus: { outlineColor: colors.borderFocus, outlineWidth: 2, outlineStyle: 'solid', outlineOffset: 2 } as object,
   flex: { flex: 1 },
-  list: { maxHeight: 420 },
+  list: { maxHeight: 420, flexShrink: 1 },
   search: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], minHeight: 46, borderRadius: radius.pill, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.borderStrong },
   searchInput: { flex: 1, color: colors.text, fontFamily: fontFamily.regular, fontSize: 16, paddingVertical: spacing[2], outlineStyle: 'none' } as object,
   option: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], minHeight: hitTarget, paddingHorizontal: spacing[3], paddingVertical: spacing[2], borderRadius: radius.md },

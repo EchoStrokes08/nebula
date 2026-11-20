@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
@@ -135,7 +136,7 @@ export default function NuevoReto() {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text variant="title1" accessibilityRole="header">Nuevo reto</Text>
         <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={10}><X size={22} color={colors.textSecondary} /></Pressable>
@@ -251,7 +252,7 @@ export default function NuevoReto() {
 
       {error ? <FormMessage tone="danger">{error}</FormMessage> : null}
       <Button label="Crear y enviar invitaciones" onPress={submit} loading={create.isPending} fullWidth />
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -2,7 +2,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import { ArrowLeft, ExternalLink, PictureInPicture2, Pause, Play, SkipForward, Square } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
@@ -159,7 +160,7 @@ export default function Enfoque() {
   if (summary) {
     const task = tasks.data?.find((t) => t.id === summary.taskId);
     return (
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[8] }, width >= 900 && styles.wide]}>
+      <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[8] }, width >= 900 && styles.wide]}>
         <Text variant="overline" tone="success">SESIÓN TERMINADA</Text>
         <Text variant="display" tabular>{formatDuration(Math.max(1, Math.round(summary.focusedSeconds / 60)))}</Text>
         <Text tone="secondary">
@@ -173,7 +174,7 @@ export default function Enfoque() {
           <Button label="Listo" onPress={back} />
         </View>
         <DistractionSheet visible={radar} onClose={() => setRadar(false)} sessionId={summary.sessionId ?? null} abandoned={summary.endedEarly} />
-      </ScrollView>
+      </KeyboardScroll>
     );
   }
 
@@ -231,7 +232,7 @@ export default function Enfoque() {
   const config: FocusConfig = mode === 'custom' ? { ...PRESETS.custom, focusMinutes: Math.min(480, Math.max(1, Number(customMin) || 0)) } : mode === 'pomodoro' ? pomodoroConfig(pomodoro) : PRESETS[mode];
   const customInvalid = mode === 'custom' && !(Number(customMin) >= 1 && Number(customMin) <= 480);
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <Pressable onPress={back} accessibilityRole="button" accessibilityLabel="Volver" style={styles.back} hitSlop={8}>
         <ArrowLeft size={20} color={colors.textSecondary} />
         <Text variant="callout" tone="secondary">Volver</Text>
@@ -286,7 +287,7 @@ export default function Enfoque() {
         </View>
       ) : null}
       <Button label={`Empezar ${config.focusMinutes} min`} icon={<Play size={18} color={colors.textOnAccent} />} disabled={customInvalid} onPress={() => { void ensureNotificationPermission().catch(() => {}).finally(() => focus.start(config, { habitId, taskId })); }} fullWidth />
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react-native';
 import { CalendarDays, Repeat, Sparkles, Timer, Trophy } from 'lucide-react-native';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/primitives/Text';
@@ -15,7 +16,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
   const wide = width >= 900;
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
+      <KeyboardScroll
         contentContainerStyle={[
           styles.scroll,
           { paddingTop: insets.top + spacing[8], paddingBottom: insets.bottom + spacing[8] },
@@ -45,7 +46,7 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
           {children}
           {!wide ? <DownloadApps /> : null}
         </View>
-      </ScrollView>
+      </KeyboardScroll>
     </KeyboardAvoidingView>
   );
 }

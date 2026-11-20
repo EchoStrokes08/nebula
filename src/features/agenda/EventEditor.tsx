@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
@@ -153,7 +154,7 @@ export function EventEditor({ event, presetDay }: { event?: EventRecord; presetD
     o.kind === 'mover' ? `Mover a ${hhmm(o.to.start)}–${hhmm(o.to.end)}` : o.kind === 'dividir' ? `Dividir: ${o.parts.map((p) => `${hhmm(p.start)}–${hhmm(p.end)}`).join(' y ')}` : 'Mantener ambos (se solaparán)';
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text variant="title1" accessibilityRole="header">{readOnly ? 'Evento importado' : editing ? 'Editar evento' : 'Nuevo evento'}</Text>
         <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={10}>
@@ -239,7 +240,7 @@ export function EventEditor({ event, presetDay }: { event?: EventRecord; presetD
         ))}
         <Text variant="caption" tone="tertiary">Nebula nunca reprograma sin tu autorización.</Text>
       </Sheet>
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

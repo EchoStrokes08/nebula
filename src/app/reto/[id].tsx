@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { Check, LogOut, RotateCcw, Timer, Trophy, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
@@ -75,7 +76,7 @@ export default function RetoDetalle() {
   const coopTotal = rows.filter((r) => r.status === 'accepted').reduce((a, r) => a + r.value, 0);
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <BackLink label="Retos" />
       <View style={styles.head}>
         <View style={styles.headRow}>
@@ -256,7 +257,7 @@ export default function RetoDetalle() {
           <Button label="Abandonar" variant="ghost" icon={<LogOut size={18} color={colors.accentSoft} />} onPress={() => confirmAction('Abandonar el reto', 'Tu resultado se conservará marcado como abandonado.', 'Abandonar', () => run(() => api.leaveChallenge(c.id)))} />
         ) : null}
       </View>
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { Plus, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
@@ -96,7 +97,7 @@ export function GoalEditor({ goal, presetKind }: { goal?: Goal; presetKind?: 'go
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <Text variant="title1" accessibilityRole="header">
           {editing ? 'Editar' : kind === 'project' ? 'Nuevo proyecto' : 'Nueva meta'}
@@ -187,7 +188,7 @@ export function GoalEditor({ goal, presetKind }: { goal?: Goal; presetKind?: 'go
 
       {failure ? <FormMessage tone="danger">{failure}</FormMessage> : null}
       <Button label={editing ? 'Guardar cambios' : 'Crear'} onPress={submit} loading={save.isPending} fullWidth />
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

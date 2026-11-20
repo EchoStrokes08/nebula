@@ -14,6 +14,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { SpaceBackground } from '@/components/primitives/SpaceBackground';
@@ -76,6 +77,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      <KeyboardProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider value={navigationTheme}>
           <View style={styles.root}>
@@ -143,6 +145,7 @@ export default function RootLayout() {
           </View>
         </ThemeProvider>
       </QueryClientProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

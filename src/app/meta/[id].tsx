@@ -1,7 +1,8 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calculator, Check, CheckCircle2, GraduationCap, Link2, Pause, Pencil, Play, Plus, Trash2, X, XCircle } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LinkifiedText } from '@/components/content/LinkText';
@@ -85,7 +86,7 @@ export default function MetaDetalle() {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
       <Pressable onPress={back} accessibilityRole="button" accessibilityLabel="Volver a Metas" style={styles.back} hitSlop={8}>
         <ArrowLeft size={20} color={colors.textSecondary} />
         <Text variant="callout" tone="secondary">Metas</Text>
@@ -281,7 +282,7 @@ export default function MetaDetalle() {
         </View>
         <Button label="Listo" variant="secondary" onPress={() => setHabitSheet(false)} />
       </Sheet>
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

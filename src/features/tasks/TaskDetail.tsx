@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { ArrowLeft, CalendarClock, Check, Link2, Lock, Pencil, Plus, Trash2, X } from 'lucide-react-native';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LinkifiedText } from '@/components/content/LinkText';
@@ -65,7 +66,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
   const run = (fn: () => Promise<unknown>, msg = 'No se pudo guardar. Revisa la conexión.') => mutate.mutate(fn, { onError: () => toast(msg) });
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: embedded ? spacing[10] : insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && !embedded && styles.wide]} keyboardShouldPersistTaps="handled">
+    <KeyboardScroll contentContainerStyle={[styles.scroll, { paddingTop: embedded ? spacing[10] : insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && !embedded && styles.wide]} keyboardShouldPersistTaps="handled">
       {!embedded ? (
         <Pressable onPress={back} accessibilityRole="button" accessibilityLabel="Volver" style={styles.back} hitSlop={8}>
           <ArrowLeft size={20} color={colors.textSecondary} />
@@ -224,7 +225,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
           </View>
         )}
       </Sheet>
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 

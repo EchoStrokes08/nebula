@@ -1,7 +1,8 @@
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -33,7 +34,7 @@ export function Screen({ title, titleAccent, overline, subtitle, trailing, child
   const desktop = navLayoutFor(width) === 'sidebar';
   const reduced = useReducedMotion();
   return (
-    <ScrollView
+    <KeyboardScroll
       style={styles.flex}
       contentContainerStyle={[
         styles.content,
@@ -74,7 +75,7 @@ export function Screen({ title, titleAccent, overline, subtitle, trailing, child
         {trailing}
       </Animated.View>
       {children}
-    </ScrollView>
+    </KeyboardScroll>
   );
 }
 
