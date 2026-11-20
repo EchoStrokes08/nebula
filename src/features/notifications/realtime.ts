@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { AppState, Platform } from 'react-native';
 
 import { supabase } from '@/data/supabase';
 import { inQuietHours } from '@/domain/notifications/schedule';
@@ -46,7 +47,9 @@ export function useSocialRealtime() {
     for (const table of ['notifications', 'friend_requests', 'challenges', 'challenge_participants', 'challenge_results', 'focus_rooms', 'focus_room_members']) channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
     channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` }, (payload) => {
       const row = payload.new as { title?: string; body?: string };
-      if (row.title && shouldAlertSocial(current)) void notifications.show(row.title, row.body ?? '');
+      // En Android, con la app en segundo plano el aviso llega por push (FCM): aquí se repetiría.
+      const backgroundAndroid = Platform.OS === 'android' && AppState.currentState !== 'active';
+      if (row.title && !backgroundAndroid && shouldAlertSocial(current)) void notifications.show(row.title, row.body ?? '');
     });
     channel.subscribe();
     return () => { void client.removeChannel(channel); };

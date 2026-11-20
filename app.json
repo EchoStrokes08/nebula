@@ -46,7 +46,8 @@
         "expo-notifications",
         {
           "color": "#8055E8",
-          "defaultChannel": "recordatorios"
+          "defaultChannel": "recordatorios",
+          "icon": "./assets/notification-icon.png"
         }
       ],
       [
@@ -73,6 +74,7 @@
         }
       ],
       "./plugins/withReleaseSigning",
+      "./plugins/withGradleMemory",
       [
         "react-native-android-widget",
         {
