@@ -1,7 +1,8 @@
 # Privacidad de Nebula
 
-Borrador de producto para revisión antes de publicar. La entidad responsable y su canal de
-contacto deben completarse en la versión distribuida.
+La versión publicada está en `public/privacidad.html`
+(https://echostrokes08.github.io/nebula/privacidad.html), junto a las condiciones del servicio en
+`public/terminos.html`. Esa página es la que vale: este archivo resume el comportamiento técnico.
 
 Nebula guarda el perfil, las preferencias y las actividades que introduces: hábitos, tareas,
 metas, agenda, sesiones de enfoque, diario, relaciones y retos. Supabase gestiona la cuenta,
@@ -30,6 +31,3 @@ En Configuración puedes exportar los datos personales en JSON o eliminar la cue
 una confirmación escrita y un segundo diálogo. El borrado elimina los avatares y la cuenta,
 y la base de datos aplica las cascadas de datos privados. La eliminación en copias de seguridad
 y registros operativos depende de la configuración de los servicios del despliegue.
-
-Antes de publicar deben documentarse el responsable, contacto, países de procesamiento,
-plazos reales de retención de backups y mecanismos para ejercer derechos aplicables.
