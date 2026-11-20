@@ -90,6 +90,11 @@
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
             }
+          ],
+          "fonts": [
+            "./node_modules/@expo-google-fonts/sora/700Bold/Sora_700Bold.ttf",
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/500Medium/PlusJakartaSans_500Medium.ttf",
+            "./node_modules/@expo-google-fonts/plus-jakarta-sans/600SemiBold/PlusJakartaSans_600SemiBold.ttf"
           ]
         }
       ]
