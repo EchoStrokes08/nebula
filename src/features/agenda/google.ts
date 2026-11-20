@@ -1,27 +1,37 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
+import * as Linking from 'expo-linking';
 import { useEffect, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 
 import { db, unwrap } from '@/data/db';
 import { supabase } from '@/data/supabase';
 import { chunks, mapGoogleEvents, type GoogleEvent } from '@/domain/integrations/google';
+import { buildGoogleAuthUrl, grantedCalendar, makeState, parseGoogleRedirect, parseState, type GoogleTarget } from '@/domain/integrations/googleOAuth';
 import type { ImportedEvent } from '@/domain/integrations/ics';
 import { exchangeCode } from '@/features/auth/api';
 import { parseCallbackUrl } from '@/features/auth/oauth';
 import { useAuth } from '@/features/auth/session';
+import { getDesktopBridge } from '@/platform/desktopBridge';
 import { oauth } from '@/platform/oauth';
 
 /**
- * Google Calendar → Nebula (solo lectura). Se pide el permiso `calendar.readonly` con el mismo
- * inicio de sesión de Google de la cuenta; el token de Google dura ~1 h, así que cada
- * sincronización usa el token vigente o vuelve a pedirlo. Los eventos se importan como copia
- * (no editables) y los borrados en Google desaparecen en la siguiente sincronización.
+ * Google Calendar → Nebula (solo lectura). El permiso `calendar.readonly` se pide con un cliente
+ * OAuth propio (EXPO_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID) cuyo retorno es una página de Nebula en
+ * GitHub Pages, no el dominio de Supabase: así Google puede verificar la app y no muestra el aviso
+ * «Google no verificó esta app». Sin ese cliente se usa el flujo anterior (inicio de sesión de
+ * Supabase con el permiso extra). El token dura ~1 h: cada sincronización usa el vigente o vuelve
+ * a pedirlo. Los eventos se importan como copia y los borrados en Google desaparecen al resincronizar.
  */
 export const GOOGLE_CALENDAR_NAME = 'Google Calendar';
 const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
 const API = 'https://www.googleapis.com/calendar/v3';
 const PENDING = 'nebula-google-calendar-pending';
 const LAST = 'nebula-google-calendar-last';
+const TOKEN = 'nebula-google-calendar-token';
+const NONCE = 'nebula-google-calendar-nonce';
+const CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID ?? '';
 const PAST_DAYS = 30;
 const FUTURE_DAYS = 365;
 
@@ -76,10 +86,78 @@ export type ConnectOutcome = { kind: 'synced'; count: number } | { kind: 'redire
  */
 export async function connectGoogleCalendar(): Promise<ConnectOutcome> {
   connecting = true;
-  try { return await connectInner(); } finally { connecting = false; }
+  try { return await (CLIENT_ID ? connectOwnClient() : connectViaSupabase()); } finally { connecting = false; }
 }
 
-async function connectInner(): Promise<ConnectOutcome> {
+// ---- Cliente OAuth propio ------------------------------------------------------------------
+
+type StoredToken = { token: string; expiresAt: number };
+
+async function storedToken(): Promise<string | null> {
+  try {
+    const t = JSON.parse((await AsyncStorage.getItem(TOKEN)) ?? 'null') as StoredToken | null;
+    return t && t.expiresAt > Date.now() ? t.token : null;
+  } catch { return null; }
+}
+
+async function forgetToken() { await AsyncStorage.removeItem(TOKEN).catch(() => {}); }
+
+/** Token vigente: el del cliente propio o, con el flujo anterior, el que dejó el inicio de sesión. */
+async function currentToken(): Promise<string | null> {
+  return (await storedToken()) ?? (CLIENT_ID ? null : useAuth.getState().session?.provider_token ?? null);
+}
+
+function target(): GoogleTarget {
+  if (Platform.OS !== 'web') return 'a';
+  return getDesktopBridge() ? 'd' : 'w';
+}
+
+async function connectOwnClient(): Promise<ConnectOutcome> {
+  if (!useAuth.getState().session) throw new Error('Inicia sesión primero.');
+  const nonce = Crypto.randomUUID().replace(/-/g, '');
+  await AsyncStorage.setItem(NONCE, nonce);
+  const t = target();
+  const authUrl = buildGoogleAuthUrl({ clientId: CLIENT_ID, state: makeState(t, nonce) });
+  // Escritorio: prepareRedirect levanta el servidor de retorno en 127.0.0.1, adonde reenvía la página puente.
+  const redirect = t === 'a' ? Linking.createURL('google-calendar') : await oauth.prepareRedirect();
+  const result = await oauth.open(authUrl, redirect);
+  if (result.type === 'redirect') return { kind: 'redirecting' };
+  if (result.type === 'cancel') return { kind: 'cancelled' };
+  return completeGoogleRedirect(result.url);
+}
+
+const completions = new Map<string, Promise<ConnectOutcome>>();
+
+/**
+ * Termina la conexión con la URL a la que volvió Google (vía la página puente). En Android puede
+ * llegar dos veces (la sesión del navegador y el enlace nebula://): ambas comparten el resultado.
+ */
+export function completeGoogleRedirect(url: string): Promise<ConnectOutcome> {
+  const r = parseGoogleRedirect(url);
+  const key = r.state ?? url;
+  let p = completions.get(key);
+  if (!p) {
+    p = (async (): Promise<ConnectOutcome> => {
+      const st = parseState(r.state);
+      const expected = await AsyncStorage.getItem(NONCE).catch(() => null);
+      if (!st || !expected || st.nonce !== expected) throw new Error('La respuesta de Google no corresponde a esta conexión. Vuelve a intentarlo.');
+      await AsyncStorage.removeItem(NONCE).catch(() => {});
+      if (!r.ok) {
+        if (r.error === 'cancelled') return { kind: 'cancelled' };
+        throw new Error(r.error);
+      }
+      if (!grantedCalendar(r.scopes)) throw new Error('Google no dio permiso para leer tu calendario. Vuelve a conectar y marca la casilla del calendario.');
+      await AsyncStorage.setItem(TOKEN, JSON.stringify({ token: r.accessToken, expiresAt: r.expiresAt } satisfies StoredToken));
+      return { kind: 'synced', count: await syncGoogleCalendar(r.accessToken) };
+    })();
+    completions.set(key, p);
+  }
+  return p;
+}
+
+// ---- Flujo anterior: inicio de sesión de Supabase con el permiso del calendario ------------------
+
+async function connectViaSupabase(): Promise<ConnectOutcome> {
   if (!supabase) throw new Error('Supabase no está configurado');
   const before = (await supabase.auth.getSession()).data.session;
   if (!before) throw new Error('Inicia sesión primero.');
@@ -123,10 +201,10 @@ export async function hasGoogleCalendar(): Promise<boolean> {
  * Sincronización con el token vigente; si caducó o no hay, vuelve a pedir permiso a Google.
  */
 export async function refreshGoogleCalendar(): Promise<ConnectOutcome> {
-  const token = useAuth.getState().session?.provider_token;
+  const token = await currentToken();
   if (token) {
     try { return { kind: 'synced', count: await syncGoogleCalendar(token) }; }
-    catch (e) { if (!(e instanceof GoogleTokenError)) throw e; }
+    catch (e) { if (!(e instanceof GoogleTokenError)) throw e; await forgetToken(); }
   }
   return connectGoogleCalendar();
 }
@@ -141,26 +219,32 @@ export function useGoogleCalendarAutoSync(onDone?: (message: string) => void) {
   const running = useRef(false);
   const notify = useRef(onDone);
   useEffect(() => { notify.current = onDone; }, [onDone]);
-  const token = session?.provider_token ?? null;
+  const userId = session?.user.id ?? null;
+  const providerToken = session?.provider_token ?? null;
   useEffect(() => {
-    if (!token || running.current || connecting) return;
+    if (!userId || running.current || connecting) return;
     let cancelled = false;
     (async () => {
-      const pending = await AsyncStorage.getItem(PENDING).catch(() => null);
+      // Solo el flujo anterior vuelve por redirección con PENDING (el propio vuelve por /google-calendar).
+      const pending = !CLIENT_ID && providerToken ? await AsyncStorage.getItem(PENDING).catch(() => null) : null;
       const last = Number(await AsyncStorage.getItem(LAST).catch(() => null)) || 0;
-      const connected = pending ? true : Date.now() - last > 30 * 60_000 && (await hasGoogleCalendar().catch(() => false));
-      if (cancelled || !connected || (!pending && Date.now() - last < 30 * 60_000)) return;
+      if (!pending && Date.now() - last < 30 * 60_000) return;
+      const token = await currentToken();
+      if (!token || cancelled) return;
+      if (!pending && !(await hasGoogleCalendar().catch(() => false))) return;
+      if (cancelled) return;
       running.current = true;
       try {
         const count = pending ? await finishConnect(null) : await syncGoogleCalendar(token);
         await qc.invalidateQueries();
         if (pending) notify.current?.(`Google Calendar conectado: ${count} eventos.`);
       } catch (e) {
+        if (e instanceof GoogleTokenError) await forgetToken();
         if (pending) notify.current?.(e instanceof Error ? e.message : 'No se pudo sincronizar Google Calendar.');
       } finally { running.current = false; }
     })();
     return () => { cancelled = true; };
-  }, [token, qc]);
+  }, [userId, providerToken, qc]);
 }
 
 /** Estado y acción para los botones «Conectar / Sincronizar Google Calendar». */

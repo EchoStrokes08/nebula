@@ -188,8 +188,10 @@ handle('oauth:listen', async () => {
 
 handle('oauth:open', async (_e, authUrl) => {
   const u = new URL(String(authUrl));
-  // Solo se abren URLs de autorización de Supabase por HTTPS.
-  if (u.protocol !== 'https:' || !u.hostname.endsWith('.supabase.co') || !u.pathname.startsWith('/auth/v1/authorize')) {
+  // Solo se abren URLs de autorización por HTTPS: Supabase (inicio de sesión) o Google (permiso del calendario).
+  const supabaseAuth = u.hostname.endsWith('.supabase.co') && u.pathname.startsWith('/auth/v1/authorize');
+  const googleAuth = u.hostname === 'accounts.google.com' && u.pathname === '/o/oauth2/v2/auth';
+  if (u.protocol !== 'https:' || !(supabaseAuth || googleAuth)) {
     stopOAuthServer();
     throw new Error('URL de autorización no permitida');
   }

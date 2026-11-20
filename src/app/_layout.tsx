@@ -119,6 +119,7 @@ export default function RootLayout() {
                   <Stack.Screen name="integraciones" />
                   <Stack.Screen name="notificaciones" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="motivacion" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
+                  <Stack.Screen name="google-calendar" options={{ animation: 'none' }} />
                 </Stack.Protected>
                 <Stack.Protected guard={gate === 'auth'}>
                   <Stack.Screen name="(auth)" />

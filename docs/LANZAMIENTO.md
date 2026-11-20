@@ -27,9 +27,27 @@ Los workflows generan artefactos; no publican automáticamente en tiendas ni Git
 4. Probar autenticación, correo, avatar, exportación y borrado con una cuenta desechable.
 5. Activar IA desde Configuración y verificar propuestas con Groq sin ejecutar acciones no deseadas.
 6. Validar Realtime con dos cuentas y permisos de presencia privados.
-7. Google Calendar: en el proyecto de Google Cloud del cliente OAuth que usa Supabase, activar
-   la Google Calendar API y añadir el permiso `calendar.readonly` a la pantalla de consentimiento
-   (en modo «Prueba», las cuentas deben estar entre los usuarios de prueba).
+7. Google Calendar, sin el aviso «Google no verificó esta app». El permiso del calendario usa un
+   cliente OAuth propio cuyo retorno es `public/oauth-google.html` en GitHub Pages, así que la
+   verificación de Google no depende del dominio `*.supabase.co` (que no es nuestro):
+   1. Crear un proyecto nuevo de Google Cloud solo para el calendario (el del inicio de sesión de
+      Supabase sigue igual: con permisos básicos Google no muestra el aviso).
+   2. Activar la Google Calendar API.
+   3. Google Auth Platform → Branding: nombre «Nebula», logo, correo de asistencia, página
+      principal `https://echostrokes08.github.io/nebula/acerca.html`, política
+      `…/nebula/privacidad.html`, condiciones `…/nebula/terminos.html` y dominio autorizado
+      `echostrokes08.github.io`.
+   4. Data Access: añadir `https://www.googleapis.com/auth/calendar.readonly`.
+   5. Clients → crear «Aplicación web» con URI de redireccionamiento
+      `https://echostrokes08.github.io/nebula/oauth-google.html` y poner su ID en
+      `EXPO_PUBLIC_GOOGLE_CALENDAR_CLIENT_ID` (`.env`) antes de `npm run release`.
+   6. Verificar la propiedad de `https://echostrokes08.github.io/` en Google Search Console con
+      la cuenta del proyecto (archivo HTML en el repositorio `echostrokes08.github.io`).
+   7. Audience → «Publicar app» y Verification Center → enviar a verificación con la justificación
+      del permiso y un video (YouTube, no listado) que muestre la pantalla de permisos con la URL
+      y cómo se ven los eventos importados en la Agenda.
+   Sin el cliente propio, la app usa el flujo anterior (inicio de sesión de Supabase con el
+   permiso extra), que siempre mostrará el aviso.
 
 Las migraciones locales nuevas deben aplicarse antes de instalar el cliente nuevo. Se añadió
 `profiles.timezone_confirmed` y pantallas que consultan diario, integraciones y salas.
