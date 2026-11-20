@@ -8,6 +8,8 @@ import { useTimeZone } from '@/features/habits/useToday';
 import { usePreferences } from '@/features/profile/usePreferences';
 import { notifications } from '@/platform/notifications';
 
+let channelSeq = 0;
+
 /** Minutos locales actuales en la zona indicada. */
 function nowMinutes(tz: string) {
   const parts = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
@@ -36,7 +38,10 @@ export function useSocialRealtime() {
     if (!uid || !supabase) return;
     const client = supabase;
     const current = key ? JSON.parse(key) : null;
-    const channel = client.channel(`social:${uid}`);
+    // Tema único por suscripción: `removeChannel` es asíncrono y, si el efecto se vuelve a montar
+    // (al volver a una pantalla congelada, p. ej. tras borrar un hábito), `channel()` devolvería el
+    // canal anterior ya suscrito y añadirle `postgres_changes` lanza una excepción que tumba la app.
+    const channel = client.channel(`social:${uid}:${++channelSeq}`);
     const refresh = () => { for (const k of ['notifications', 'friend_requests', 'friends', 'challenges', 'standings', 'challenge_people', 'challenge_results', 'rooms']) void qc.invalidateQueries({ queryKey: [k] }); };
     for (const table of ['notifications', 'friend_requests', 'challenges', 'challenge_participants', 'challenge_results', 'focus_rooms', 'focus_room_members']) channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh);
     channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` }, (payload) => {
