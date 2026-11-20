@@ -9,6 +9,7 @@ import { ProgressBar } from '@/components/progress/ProgressBar';
 import { useGoalSummaries } from '@/features/goals/hooks';
 import { colors, spacing } from '@/design/tokens';
 import { SkeletonList } from '@/components/feedback/Skeleton';
+import { wrapLabel } from '@/domain/goals/label';
 
 export default function Constelacion() {
   const goals = useGoalSummaries(); const { width } = useWindowDimensions(); const [list, setList] = useState(false);
@@ -30,7 +31,7 @@ export default function Constelacion() {
             const angle = 2 * Math.PI * i / arr.length; const x = 200 + Math.cos(angle) * 145; const y = 200 + Math.sin(angle) * 145;
             return <Line key={n.id} x1={200} y1={200} x2={x} y2={y} stroke={colors.borderStrong} strokeWidth={1.5} />;
           })}
-          <Circle cx={200} cy={200} r={24} fill={colors.accent} /><SvgText x={200} y={245} fill={colors.text} fontSize={13} textAnchor="middle">{goal.title.slice(0, 24)}</SvgText>
+          <Circle cx={200} cy={200} r={24} fill={colors.accent} />{wrapLabel(goal.title).map((line, i) => <SvgText key={i} x={200} y={245 + i * 16} fill={colors.text} fontSize={13} textAnchor="middle">{line}</SvgText>)}
           {nodes.slice(0, 16).map((n, i, arr) => {
             const angle = 2 * Math.PI * i / arr.length; const x = 200 + Math.cos(angle) * 145; const y = 200 + Math.sin(angle) * 145;
             return <Circle key={n.id} cx={x} cy={y} r={n.kind === 'habit' ? 9 : 6} fill={n.done ? colors.success : colors.accentSoft} onPress={() => router.push({ pathname: n.kind === 'habit' ? '/habito/[id]' : '/tarea/[id]', params: { id: n.id } })} />;
