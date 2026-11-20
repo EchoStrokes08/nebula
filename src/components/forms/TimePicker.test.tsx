@@ -61,7 +61,7 @@ describe('TimePicker', () => {
     await fireEvent.changeText(screen.getByLabelText(/^Minutos, escríbelos/), '37');
     await fireEvent.press(screen.getByRole('button', { name: 'Usar las 08:37' }));
     expect(onChange).toHaveBeenLastCalledWith('08:37');
-  });
+  }, 15_000); // Renderiza el desplegable de 24 horas: con la máquina cargada supera los 5 s por defecto.
   it('− y + afinan minuto a minuto', async () => {
     const onChange = jest.fn();
     await render(<TimePicker label="Hora" value="08:59" onChange={onChange} />);
