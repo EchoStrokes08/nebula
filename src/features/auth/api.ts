@@ -40,9 +40,24 @@ export async function requestPasswordReset(email: string) {
   if (error) throw error;
 }
 
-export async function exchangeCode(code: string) {
-  const { error } = await client().auth.exchangeCodeForSession(code);
-  if (error) throw error;
+/** Códigos ya canjeados (o en curso) en este proceso: cada código OAuth solo vale una vez. */
+const exchanges = new Map<string, Promise<void>>();
+
+/** ¿Este código ya se canjeó o se está canjeando? (Android puede entregar la vuelta dos veces). */
+export const wasExchanged = (code: string) => exchanges.has(code);
+
+export function exchangeCode(code: string): Promise<void> {
+  let p = exchanges.get(code);
+  if (!p) {
+    p = (async () => {
+      const { error } = await client().auth.exchangeCodeForSession(code);
+      if (error) throw error;
+    })();
+    exchanges.set(code, p);
+    // Si falla, se permite reintentar con el mismo código.
+    p.catch(() => exchanges.delete(code));
+  }
+  return p;
 }
 
 export async function updatePassword(password: string) {

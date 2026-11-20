@@ -5,7 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, spacing } from '@/design/tokens';
-import { exchangeCode } from '@/features/auth/api';
+import { exchangeCode, wasExchanged } from '@/features/auth/api';
 import { authErrorMessage } from '@/features/auth/errors';
 import { useAuth } from '@/features/auth/session';
 
@@ -18,11 +18,19 @@ export default function AuthCallback() {
 
   useEffect(() => {
     if (!params.code) return;
+    // Vuelta duplicada de un inicio de sesión o una conexión (p. ej. Google Calendar) que ya se
+    // completó en otra parte: no se vuelve a canjear el código, se regresa a donde estaba.
+    if (wasExchanged(params.code)) {
+      if (router.canGoBack()) router.back(); else router.replace('/');
+      return;
+    }
     if (params.next === 'recovery') useAuth.getState().setRecovery(true);
     exchangeCode(params.code)
       .then(() => router.replace('/'))
       .catch((e) => {
         useAuth.getState().setRecovery(false);
+        // El código ya no vale pero la sesión sigue abierta: era una vuelta repetida, no un error.
+        if (useAuth.getState().session && params.next !== 'recovery') { if (router.canGoBack()) router.back(); else router.replace('/'); return; }
         setExchangeError(`${authErrorMessage(e)} El enlace puede haber caducado.`);
       });
   }, [params.code, params.next]);
