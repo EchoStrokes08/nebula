@@ -6,6 +6,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
+import { Stepper } from '@/components/forms/Stepper';
 import { TextField } from '@/components/forms/TextField';
 import { Sheet } from '@/components/overlays/Sheet';
 import { useToast } from '@/components/overlays/UndoToast';
@@ -20,6 +21,8 @@ import { insertLog } from '@/features/habits/api';
 import { useHabitsData } from '@/features/habits/hooks';
 import { useTimeZone } from '@/features/habits/useToday';
 import { useFocus } from '@/features/focus/store';
+import { usePomodoroSettings } from '@/features/focus/settings';
+import { describePomodoro, pomodoroConfig, POMODORO_LIMITS, POMODORO_PRESETS, samePomodoro } from '@/domain/focus/pomodoro';
 import { useTasks } from '@/features/tasks/hooks';
 import { MotivationLine } from '@/features/motivation/MotivationLine';
 import { dayKeyOf } from '@/lib/dates';
@@ -28,7 +31,7 @@ import { ensureNotificationPermission } from '@/features/notifications/Notificat
 import { formatDuration } from '@/lib/time';
 
 const MODES: { v: FocusMode; l: string; h: string }[] = [
-  { v: 'pomodoro', l: 'Pomodoro', h: '25 min de enfoque, 5 de descanso; descanso largo cada 4 bloques.' },
+  { v: 'pomodoro', l: 'Pomodoro', h: '' },
   { v: 'custom', l: 'Libre', h: 'Un solo bloque de la duración que elijas.' },
   { v: 'long', l: 'Sesión larga', h: '90 min de trabajo profundo y 15 de descanso.' },
 ];
@@ -69,6 +72,8 @@ export default function Enfoque() {
 
   const [mode, setMode] = useState<FocusMode>('pomodoro');
   const [customMin, setCustomMin] = useState('45');
+  const pomodoro = usePomodoroSettings((st) => st.settings);
+  const setPomodoro = usePomodoroSettings((st) => st.set);
   const [habitId, setHabitId] = useState<string | null>(params.habito ?? null);
   const [taskId, setTaskId] = useState<string | null>(params.tarea ?? null);
   const [summary, setSummary] = useState<(SessionSummary & { sessionId?: string }) | null>(null);
@@ -222,7 +227,7 @@ export default function Enfoque() {
   }
 
   // --- Configuración -----------------------------------------------------------------------
-  const config: FocusConfig = mode === 'custom' ? { ...PRESETS.custom, focusMinutes: Math.min(480, Math.max(1, Number(customMin) || 0)) } : PRESETS[mode];
+  const config: FocusConfig = mode === 'custom' ? { ...PRESETS.custom, focusMinutes: Math.min(480, Math.max(1, Number(customMin) || 0)) } : mode === 'pomodoro' ? pomodoroConfig(pomodoro) : PRESETS[mode];
   const customInvalid = mode === 'custom' && !(Number(customMin) >= 1 && Number(customMin) <= 480);
   return (
     <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]} keyboardShouldPersistTaps="handled">
@@ -239,7 +244,21 @@ export default function Enfoque() {
             <Chip key={m.v} role="radio" label={m.l} selected={mode === m.v} onToggle={() => setMode(m.v)} />
           ))}
         </View>
-        <Text variant="callout" tone="secondary">{MODES.find((m) => m.v === mode)!.h}</Text>
+        <Text variant="callout" tone="secondary">{mode === 'pomodoro' ? describePomodoro(pomodoro) : MODES.find((m) => m.v === mode)!.h}</Text>
+        {mode === 'pomodoro' ? (
+          <View style={styles.pomodoro}>
+            <View style={styles.wrap}>
+              {POMODORO_PRESETS.map((p) => (
+                <Chip key={p.label} role="radio" label={p.label} selected={samePomodoro(pomodoro, p.value)} onToggle={() => setPomodoro(p.value)} />
+              ))}
+            </View>
+            <Stepper label="Enfoque" unit="min" value={pomodoro.focus} min={POMODORO_LIMITS.focus[0]} max={POMODORO_LIMITS.focus[1]} step={POMODORO_LIMITS.focus[2]} onChange={(v) => setPomodoro({ focus: v })} />
+            <Stepper label="Descanso corto" unit="min" value={pomodoro.short} min={POMODORO_LIMITS.short[0]} max={POMODORO_LIMITS.short[1]} step={POMODORO_LIMITS.short[2]} onChange={(v) => setPomodoro({ short: v })} />
+            <Stepper label="Descanso largo" unit="min" value={pomodoro.long} min={POMODORO_LIMITS.long[0]} max={POMODORO_LIMITS.long[1]} step={POMODORO_LIMITS.long[2]} onChange={(v) => setPomodoro({ long: v })} />
+            <Stepper label="Bloques hasta el descanso largo" value={pomodoro.cycles} min={POMODORO_LIMITS.cycles[0]} max={POMODORO_LIMITS.cycles[1]} step={1} onChange={(v) => setPomodoro({ cycles: v })} />
+            <Text variant="caption" tone="tertiary">Se guarda para tus próximas sesiones.</Text>
+          </View>
+        ) : null}
         {mode === 'custom' ? <TextField label="Minutos" value={customMin} onChangeText={setCustomMin} inputMode="numeric" error={customInvalid ? 'Entre 1 y 480 minutos.' : null} /> : null}
       </View>
       {activeHabits.length ? (
@@ -316,6 +335,7 @@ function DistractionSheet({ visible, onClose, sessionId, abandoned }: { visible:
 
 
 const styles = StyleSheet.create({
+  pomodoro: { gap: spacing[3], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   scroll: { paddingHorizontal: spacing[5], gap: spacing[5] },
   wide: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   back: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
