@@ -26,6 +26,8 @@ import { setTarget } from '@/features/habits/api';
 import { useHabitMutation, useHabitsData } from '@/features/habits/hooks';
 import { useToday } from '@/features/habits/useToday';
 import { ActionCard } from '@/features/intelligence/ActionCard';
+import { CommandCard } from '@/features/intelligence/CommandCard';
+import { matchCommand, type AssistantCommand } from '@/domain/assistant/commands';
 import { appVersion } from '@/features/system/update';
 import { getDesktopBridge } from '@/platform/desktopBridge';
 import { useUpdatePreferences } from '@/features/profile/usePreferences';
@@ -33,9 +35,11 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { askWithRetry } from '@/domain/assistant/errors';
 
 type Response = ReturnType<typeof assistanceSchema.parse>;
-interface Turn { request: string; response: Response }
+interface Turn { request: string; response: Response; command?: AssistantCommand }
 
 const SUGGESTIONS = [
+  { label: 'Pasa lo pendiente a mañana', prompt: 'Pasa lo que no hice hoy a mañana' },
+  { label: 'Reorganiza mi tarde', prompt: 'Reorganiza mi tarde' },
   { label: 'Planifica mi día', prompt: 'Organiza mi día de hoy con mis tareas, hábitos y huecos libres de la agenda. Propón bloques concretos.' },
   { label: '¿Cómo voy esta semana?', prompt: 'Analiza mi última semana: hábitos, tareas completadas y enfoque. Dime qué va bien y qué mejorar.' },
   { label: 'Hábito que necesita atención', prompt: '¿Qué hábito estoy descuidando y cómo lo retomo sin agobiarme?' },
@@ -112,6 +116,15 @@ export default function Asistente() {
   const send = async (message: string) => {
     const text = message.trim();
     if (!text || busy) return;
+    // Órdenes concretas: se resuelven en el dispositivo, al momento y sin consultar a la IA.
+    const command = matchCommand(text);
+    if (command) {
+      const reply = command.kind === 'carry_over' ? 'Esto es lo que quedó pendiente. Lo paso a mañana cuando me digas.' : 'Te preparo el resto del día con tus huecos libres.';
+      setConversation((c) => [...c, { request: text, response: { message: reply, actions: [] }, command }]);
+      setRequest('');
+      setError('');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -225,6 +238,7 @@ export default function Asistente() {
                   <RichText>{turn.response.message}</RichText>
                 </View>
               </View>
+              {turn.command ? <CommandCard command={turn.command} /> : null}
               {turn.response.actions.map((a, j) => <ActionCard key={j} action={a} autoApply={autoApply && i === conversation.length - 1} />)}
             </Animated.View>
           ))}
