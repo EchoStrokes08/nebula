@@ -27,7 +27,7 @@ const COLOR_LABEL: Record<NoteColor, string> = { amarillo: 'Amarillo', rosa: 'Ro
 
 /** Nota rápida: un pósit con color, día, hora y recordatorio opcionales. */
 export default function Captura() {
-  const { nota } = useLocalSearchParams<{ nota?: string }>();
+  const { nota, texto } = useLocalSearchParams<{ nota?: string; texto?: string }>();
   const notes = useNotes();
   const existing = nota ? notes.data?.find((n) => n.id === nota) : undefined;
   // Al editar, el formulario se monta cuando la nota está cargada para partir de sus valores.
@@ -38,16 +38,17 @@ export default function Captura() {
       </Screen>
     );
   }
-  return <NoteForm key={existing?.id ?? 'nueva'} note={existing} />;
+  // `texto`: lo que se compartió desde otra app (menú Compartir de Android).
+  return <NoteForm key={existing?.id ?? `nueva-${texto ?? ''}`} note={existing} initialText={texto?.slice(0, 1000)} />;
 }
 
-function NoteForm({ note }: { note?: Note }) {
+function NoteForm({ note, initialText }: { note?: Note; initialText?: string }) {
   const today = useToday();
   const tz = useTimeZone();
   const toast = useToast((t) => t.show);
   const save = useSaveNote();
   const remove = useDeleteNote();
-  const [text, setText] = useState(note?.text ?? '');
+  const [text, setText] = useState(note?.text ?? initialText ?? '');
   const [color, setColor] = useState<NoteColor>(note?.color ?? 'amarillo');
   const [day, setDay] = useState<DayKey | null>(note?.day ?? null);
   const [time, setTime] = useState(note?.atTime ?? '');

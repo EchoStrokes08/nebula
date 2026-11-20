@@ -10,6 +10,7 @@ import { navLayoutFor, sections } from '@/components/navigation/sections';
 import { Text } from '@/components/primitives/Text';
 import { glassBlur } from '@/components/primitives/Card';
 import { QuickActions } from '@/platform/QuickActions';
+import { ShareIntentHandler } from '@/platform/ShareIntent';
 import { colors, fontFamily, hitTarget, spacing } from '@/design/tokens';
 import { useSocialRealtime } from '@/features/notifications/realtime';
 import { usePushRegistration } from '@/features/notifications/usePushRegistration';
@@ -68,6 +69,7 @@ export default function TabsLayout() {
         </TabList>
       ) : null}
       <QuickActions />
+      <ShareIntentHandler />
       <TabSlot style={styles.slot} />
       {!sidebar ? <View pointerEvents="box-none" style={[styles.fabLayer, { bottom: hitTarget + 8 + Math.max(insets.bottom, spacing[2]) + spacing[4] }]}><QuickCreate layout="floating" /></View> : null}
       {!sidebar ? (

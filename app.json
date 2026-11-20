@@ -104,6 +104,15 @@
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false
         }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "androidIntentFilters": [
+            "text/*"
+          ],
+          "disableIOS": true
+        }
       ]
     ],
     "scheme": "nebula",
