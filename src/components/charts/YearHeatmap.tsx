@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/primitives/Text';
 import { colors, spacing } from '@/design/tokens';
@@ -10,7 +10,8 @@ export function YearHeatmap({ today, weekStartsOn, rateFor, summary }: { today: 
   const fill = (r: number | null) => (r === null ? colors.track : r === 0 ? 'rgba(169, 135, 255, 0.12)' : `rgba(169, 135, 255, ${0.3 + r * 0.7})`);
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={summary} style={styles.root}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.grid}>
+      {/* En web se ve la barra: el ratón no desplaza en horizontal y así no queda nada oculto. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={Platform.OS === 'web'} contentContainerStyle={styles.grid}>
         {Array.from({ length: 53 }, (_, w) => (
           <View key={w} style={styles.col}>
             {Array.from({ length: 7 }, (_, d) => {

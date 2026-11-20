@@ -156,7 +156,7 @@ export function HabitEditor({ habit }: HabitEditorProps) {
             : 'Objetivo';
 
   return (
-    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide]}>
+    <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[10] }, width >= 900 && styles.wide, width >= 900 && step === 'elegir' && styles.wideChoose]}>
       <View style={styles.header}>
         <Text variant="title1" accessibilityRole="header">
           {editing ? 'Editar hábito' : 'Nuevo hábito'}
@@ -346,6 +346,8 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing[5], gap: spacing[6] },
   wide: { maxWidth: 640, width: '100%', alignSelf: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  // Elegir sugerencia: índice de categorías + cuadrícula, necesita más ancho que el formulario.
+  wideChoose: { maxWidth: 1080 },
   section: { gap: spacing[3] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   row: { flexDirection: 'row', gap: spacing[3] },

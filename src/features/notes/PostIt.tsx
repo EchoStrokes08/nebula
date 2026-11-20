@@ -1,9 +1,10 @@
 import { router } from 'expo-router';
 import { Bell, Check, ChevronRight, Plus, StickyNote } from 'lucide-react-native';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 
 import { formatDay } from '@/components/forms/DateField';
+import { Rail } from '@/components/layout/Rail';
 import { SectionHeader } from '@/components/layout/SectionHeader';
 import { useToast } from '@/components/overlays/UndoToast';
 import { GlassCard } from '@/components/primitives/GlassCard';
@@ -78,13 +79,13 @@ export function NotesBoard({ today }: { today: DayKey }) {
     <View style={styles.section}>
       <SectionHeader icon={StickyNote} title="Notas" meta={list.length ? `${list.length} pendiente${list.length === 1 ? '' : 's'}` : undefined} color={colors.success} />
       {list.length ? (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scroll} contentContainerStyle={styles.row}>
+        <Rail gap={spacing[4]} style={styles.rail}>
           {list.map((n, i) => (
             <Animated.View key={n.id} entering={FadeIn.duration(200)} layout={LinearTransition}>
               <PostIt note={n} today={today} index={i} onPress={() => router.push({ pathname: '/captura', params: { nota: n.id } })} onDone={() => done(n)} />
             </Animated.View>
           ))}
-        </ScrollView>
+        </Rail>
       ) : null}
       <GlassCard onPress={() => router.push('/captura')} accessibilityLabel="Nueva nota rápida" radius={radius.pill} style={styles.add}>
         <View style={styles.addIcon}>
@@ -100,8 +101,7 @@ export function NotesBoard({ today }: { today: DayKey }) {
 
 const styles = StyleSheet.create({
   section: { gap: spacing[3] },
-  scroll: { marginHorizontal: -spacing[5], flexGrow: 0 },
-  row: { gap: spacing[4], paddingHorizontal: spacing[5], paddingVertical: spacing[3], alignItems: 'flex-start' },
+  rail: { paddingVertical: spacing[3] },
   paper: { minHeight: 150, borderRadius: 4, borderBottomRightRadius: 18, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 6 },
   body: { flex: 1, minHeight: 150, padding: spacing[4], paddingTop: spacing[5], gap: spacing[3], justifyContent: 'space-between' },
   bodyPressed: { opacity: 0.75 },
