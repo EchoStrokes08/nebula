@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fontFamily.serifItalic,
     color: colors.text,
-    letterSpacing: -0.2,
+    letterSpacing: 0.5,
     textShadowColor: 'rgba(229, 143, 208, 0.3)',
     textShadowRadius: 14,
   } as TextStyle,
