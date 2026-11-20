@@ -363,7 +363,8 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // Google Calendar se lee directamente desde la app (solo lectura, con el token del usuario).
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.googleapis.com",
 ].join('; ');
 
 // ---- Enlaces nebula:// (recuperación de contraseña, accesos directos) -------------------------

@@ -1,13 +1,15 @@
 import { dueTaskSlots } from '@/domain/calendar/dueTasks';
+import { availabilitySlots, habitSlots, type AvailabilitySlot } from '@/domain/calendar/habitSlots';
+import { useHabitsData } from '@/features/habits/hooks';
 import { expandEvents, localMinutes } from '@/domain/calendar/expand';
 import { findConflicts } from '@/domain/planning/intervals';
 import { useTasks } from '@/features/tasks/hooks';
 import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { dayKeyOf, dayRange, type DayKey } from '@/lib/dates';
 
-import { useEvents, useFocusSessions } from './hooks';
+import { useAvailability, useEvents, useFocusSessions } from './hooks';
 
-export type AgendaKind = 'event' | 'task' | 'focus';
+export type AgendaKind = 'event' | 'task' | 'focus' | 'habit';
 
 export interface AgendaItem {
   key: string;
@@ -34,6 +36,8 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
   const events = useEvents();
   const tasks = useTasks();
   const focus = useFocusSessions();
+  const { habits } = useHabitsData();
+  const availability = useAvailability();
   const items: AgendaItem[] = [];
 
   const pushSpan = (base: Omit<AgendaItem, 'day' | 'start' | 'end' | 'conflict'>, start: Date, end: Date) => {
@@ -65,9 +69,14 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
     pushSpan({ key: `f-${f.id}`, kind: 'focus', refId: f.id, title: 'Sesión de enfoque', allDay: false }, new Date(f.startedAt), new Date(f.endedAt));
   }
 
+  // Hábitos diarios: a su hora de recordatorio o como «todo el día».
+  for (const h of habitSlots(habits.data ?? [], from, to)) {
+    items.push({ key: `h-${h.id}-${h.day}`, kind: 'habit', refId: h.id, title: h.name, day: h.day, start: h.start, end: h.end, allDay: h.allDay, conflict: false });
+  }
+
   // Conflictos: eventos o bloques planificados que se solapan (no se marcan sesiones ya hechas).
   for (const day of dayRange(from, to)) {
-    const candidates = items.filter((i) => i.day === day && !i.allDay && i.kind !== 'focus' && !i.due);
+    const candidates = items.filter((i) => i.day === day && !i.allDay && i.kind !== 'focus' && i.kind !== 'habit' && !i.due);
     for (const [a, b] of findConflicts(candidates.map((i) => ({ id: i.key, start: i.start, end: i.end })))) {
       for (const i of items) if (i.key === a.id || i.key === b.id) i.conflict = true;
     }
@@ -75,6 +84,8 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
 
   return {
     items: items.sort((a, b) => a.day.localeCompare(b.day) || a.start - b.start),
+    /** Franjas de disponibilidad de cada día (fondo de la línea temporal). */
+    availability: availabilitySlots(availability.data ?? [], from, to) as AvailabilitySlot[],
     isLoading: events.isLoading || tasks.isLoading,
     error: events.error ?? tasks.error,
   };

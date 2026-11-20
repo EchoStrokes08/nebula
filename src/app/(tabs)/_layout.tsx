@@ -14,6 +14,8 @@ import { colors, hitTarget, spacing } from '@/design/tokens';
 import { useSocialRealtime } from '@/features/notifications/realtime';
 import { useReminderSync } from '@/features/notifications/useReminderSync';
 import { useTimezoneSync } from '@/features/profile/useTimezoneSync';
+import { useGoogleCalendarAutoSync } from '@/features/agenda/google';
+import { useToast } from '@/components/overlays/UndoToast';
 
 /** Atajos de escritorio: Ctrl+1…5 cambia de sección. */
 function useSectionShortcuts(enabled: boolean) {
@@ -43,6 +45,8 @@ export default function TabsLayout() {
   useTimezoneSync();
   useReminderSync();
   useSocialRealtime();
+  const toast = useToast((t) => t.show);
+  useGoogleCalendarAutoSync(toast);
 
   return (
     <Tabs style={sidebar ? styles.row : styles.column}>

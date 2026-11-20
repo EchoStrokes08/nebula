@@ -27,6 +27,9 @@ Los workflows generan artefactos; no publican automáticamente en tiendas ni Git
 4. Probar autenticación, correo, avatar, exportación y borrado con una cuenta desechable.
 5. Activar IA desde Configuración y verificar propuestas con Groq sin ejecutar acciones no deseadas.
 6. Validar Realtime con dos cuentas y permisos de presencia privados.
+7. Google Calendar: en el proyecto de Google Cloud del cliente OAuth que usa Supabase, activar
+   la Google Calendar API y añadir el permiso `calendar.readonly` a la pantalla de consentimiento
+   (en modo «Prueba», las cuentas deben estar entre los usuarios de prueba).
 
 Las migraciones locales nuevas deben aplicarse antes de instalar el cliente nuevo. Se añadió
 `profiles.timezone_confirmed` y pantallas que consultan diario, integraciones y salas.

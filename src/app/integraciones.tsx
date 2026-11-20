@@ -9,6 +9,7 @@ import { parseIcs, type ImportedEvent } from '@/domain/integrations/ics';
 import { canReadDeviceCalendar, readDeviceCalendar } from '@/platform/calendar';
 import { useAuth } from '@/features/auth/session';
 import { confirmAction } from '@/lib/confirm';
+import { GoogleCalendarBar } from '@/features/agenda/GoogleCalendarBar';
 
 export default function Integraciones() {
   const uid = useAuth((s) => s.session?.user.id); const qc = useQueryClient();
@@ -17,6 +18,8 @@ export default function Integraciones() {
   const parsed = useMemo(() => parseIcs(text), [text]); const events = device ?? parsed.events;
   const list = useQuery({ queryKey: ['integrations', uid], enabled: !!uid, queryFn: async () => unwrap(await db().from('integrations').select('id, name, provider, last_imported_at')) as { id: string; name: string; provider: string; last_imported_at: string }[] });
   return <Screen title="Integraciones" back={{ fallback: '/perfil' }}>
+    <GoogleCalendarBar detailed />
+    <Text variant="title3">Otros calendarios</Text>
     <Text tone="secondary">Importa una copia de tus eventos para que la planificación respete esos compromisos. Reimportar el mismo calendario actualiza eventos por su identificador. La importación es manual.</Text>
     <TextField label="Nombre del calendario" value={name} onChangeText={setName} maxLength={80} />
     <TextField label="Contenido del archivo ICS" multiline value={text} onChangeText={(s) => { setText(s); setDevice(null); }} placeholder="BEGIN:VCALENDAR…" maxLength={2000000} />

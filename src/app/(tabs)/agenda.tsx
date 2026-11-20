@@ -12,6 +12,7 @@ import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
 import { DayTimeline, openItem } from '@/features/agenda/DayTimeline';
 import { useAgendaItems } from '@/features/agenda/useAgendaItems';
+import { GoogleCalendarBar } from '@/features/agenda/GoogleCalendarBar';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
 import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { useMyProfile } from '@/features/profile/useMyProfile';
@@ -32,7 +33,7 @@ const VIEWS: { v: View_; l: string }[] = [
   { v: 'tareas', l: 'Tareas' },
 ];
 const DOW = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
-const FILTER_LABEL: Record<string, string> = { trabajo: 'Trabajo', estudio: 'Estudio', personal: 'Personal', salud: 'Salud', social: 'Social', otro: 'Otros', task: 'Tareas', focus: 'Enfoque' };
+const FILTER_LABEL: Record<string, string> = { trabajo: 'Trabajo', estudio: 'Estudio', personal: 'Personal', salud: 'Salud', social: 'Social', otro: 'Otros', task: 'Tareas', focus: 'Enfoque', habit: 'Hábitos', availability: 'Disponibilidad' };
 
 export default function AgendaScreen() {
   const today = useToday();
@@ -51,11 +52,12 @@ export default function AgendaScreen() {
   const monthStart = startOfMonth(day);
   const from = view === 'semana' ? weekStart : view === 'mes' ? addDays(startOfWeek(monthStart, weekStartsOn), 0) : day;
   const to = view === 'semana' ? addDays(weekStart, 6) : view === 'mes' ? addDays(startOfWeek(monthStart, weekStartsOn), 41) : day;
-  const { items: allItems, isLoading } = useAgendaItems(from, to);
+  const { items: allItems, availability, isLoading } = useAgendaItems(from, to);
   // Filtro por categoría (eventos) y por tipo (tareas planificadas, sesiones de enfoque).
   const filterKey = (i: { kind: string; category?: string }) => (i.kind === 'event' ? (i.category ?? 'otro') : i.kind);
   const items = allItems.filter((i) => !hidden.includes(filterKey(i)));
-  const present = [...new Set(allItems.map(filterKey))];
+  const present = [...new Set([...allItems.map(filterKey), ...(availability.length ? ['availability'] : [])])];
+  const bandsFor = (d: DayKey) => (hidden.includes('availability') ? [] : availability.filter((a) => a.day === d));
   const nowMinutes = localMinutes(new Date(), tz);
 
   const shift = (n: number) => setDay(view === 'semana' ? addDays(day, 7 * n) : view === 'mes' ? addDays(startOfMonth(addDays(monthStart, n > 0 ? 32 : -1)), 0) : addDays(day, n));
@@ -68,7 +70,7 @@ export default function AgendaScreen() {
 
   // Marcadores del mes: eventos y tareas (planificadas o por fecha límite).
   const markers: Record<string, number> = {};
-  for (const i of items) markers[i.day] = (markers[i.day] ?? 0) + 1;
+  for (const i of items) if (i.kind !== 'habit') markers[i.day] = (markers[i.day] ?? 0) + 1;
 
   const screen = (
     <Screen
@@ -86,6 +88,8 @@ export default function AgendaScreen() {
           <Chip key={v.v} role="radio" label={v.l} selected={view === v.v} onToggle={() => setView(v.v)} />
         ))}
       </View>
+
+      {view !== 'tareas' ? <GoogleCalendarBar /> : null}
 
       {view === 'tareas' ? (
         <>
@@ -125,6 +129,7 @@ export default function AgendaScreen() {
               {!isLoading && items.length === 0 ? <Text tone="secondary">Nada programado. Añade un evento o planifica tus tareas en los huecos libres.</Text> : null}
               <DayTimeline
                 items={items.filter((i) => i.day === day)}
+                bands={bandsFor(day)}
                 nowMinutes={day === today ? nowMinutes : null}
                 startHour={day === today ? Math.max(6, Math.floor(nowMinutes / 60) - 1) : 6}
               />
@@ -140,7 +145,7 @@ export default function AgendaScreen() {
                       <Text variant="caption" tone={d === today ? 'accent' : 'secondary'}>{DOW[new Date(`${d}T12:00:00Z`).getUTCDay()]}</Text>
                       <Text variant="title3" tabular>{Number(d.slice(8))}</Text>
                     </View>
-                    <DayTimeline items={items.filter((i) => i.day === d)} hourHeight={28} compact nowMinutes={d === today ? nowMinutes : null} />
+                    <DayTimeline items={items.filter((i) => i.day === d)} bands={bandsFor(d)} hourHeight={28} compact nowMinutes={d === today ? nowMinutes : null} />
                   </Pressable>
                 ))}
               </View>
