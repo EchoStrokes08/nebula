@@ -10,7 +10,7 @@ import { navLayoutFor, sections } from '@/components/navigation/sections';
 import { Text } from '@/components/primitives/Text';
 import { glassBlur } from '@/components/primitives/Card';
 import { QuickActions } from '@/platform/QuickActions';
-import { colors, hitTarget, spacing } from '@/design/tokens';
+import { colors, fontFamily, hitTarget, spacing } from '@/design/tokens';
 import { useSocialRealtime } from '@/features/notifications/realtime';
 import { useReminderSync } from '@/features/notifications/useReminderSync';
 import { useTimezoneSync } from '@/features/profile/useTimezoneSync';
@@ -55,7 +55,7 @@ export default function TabsLayout() {
         <TabList style={styles.sidebar} role="navigation" aria-label="Secciones">
           <View style={styles.brand}>
             <View style={styles.brandMark} />
-            <Text variant="title2" style={styles.brandText}>Nebula</Text>
+            <Text style={styles.brandText}>Nebula</Text>
           </View>
           <QuickCreate layout="sidebar" />
           {sections.map((s, i) => (
@@ -108,15 +108,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing[5],
   },
   brandMark: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.accent,
-    shadowColor: colors.accent,
-    shadowOpacity: 0.8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.star,
+    shadowColor: colors.star,
+    shadowOpacity: 0.9,
     shadowRadius: 10,
   },
-  brandText: { letterSpacing: -0.6 },
+  brandText: { fontFamily: fontFamily.serifItalic, fontSize: 30, lineHeight: 34, color: colors.text, letterSpacing: -0.4 },
   bottomBar: {
     flexDirection: 'row',
     marginHorizontal: spacing[3],

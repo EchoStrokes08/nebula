@@ -41,7 +41,7 @@ export function NavItem({ section, layout, isFocused, shortcut, ref, ...pressabl
       {!sidebar && isFocused ? <Animated.View entering={enter} style={styles.bottomIndicator} /> : null}
       {sidebar && isFocused ? <Animated.View entering={enter} style={styles.sideIndicator} /> : null}
       <Icon size={sidebar ? 18 : 22} color={isFocused ? colors.accentBright : tint} strokeWidth={isFocused ? 2.2 : 1.8} />
-      <Text variant={sidebar ? 'bodyStrong' : 'caption'} style={[{ color: tint }, sidebar && styles.sideLabel]}>
+      <Text variant={sidebar ? 'bodyStrong' : 'caption'} style={[{ color: isFocused && !sidebar ? colors.star : tint }, sidebar && styles.sideLabel]}>
         {section.label}
       </Text>
       {sidebar && shortcut ? (
@@ -63,17 +63,20 @@ const styles = StyleSheet.create({
     paddingTop: spacing[3],
     paddingBottom: spacing[2],
   },
+  // Estrella activa: un punto cálido con halo en el borde superior de la barra.
   bottomIndicator: {
     position: 'absolute',
-    top: 6,
-    width: 54,
-    height: 30,
-    borderRadius: radius.pill,
-    backgroundColor: colors.accentMuted,
-    borderWidth: 1,
-    borderColor: 'rgba(169, 135, 255, 0.35)',
+    top: 2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.star,
+    shadowColor: colors.star,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
-  sideIndicator: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 3, borderRadius: 2, backgroundColor: colors.accentBright },
+  sideIndicator: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 3, borderRadius: 2, backgroundColor: colors.star },
   side: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -82,7 +85,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[3],
     borderRadius: radius.md,
   },
-  sideActive: { backgroundColor: colors.accentMuted },
+  sideActive: { backgroundColor: colors.starMuted },
   sideLabel: { flex: 1 },
   hover: { backgroundColor: 'rgba(199, 169, 255, 0.06)' },
   focusRing: { outlineColor: colors.borderFocus, outlineWidth: 2, outlineStyle: 'solid' } as object,

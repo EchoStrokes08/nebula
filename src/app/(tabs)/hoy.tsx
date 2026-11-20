@@ -40,7 +40,9 @@ const dayLabel = (day: string) => new Intl.DateTimeFormat('es', { weekday: 'long
 export default function HoyScreen() {
   const { summaries, today, isLoading, error, refetch } = useHabitSummaries();
   const firstName = useMyProfile().data?.display_name?.split(' ')[0];
-  const hello = `${greeting(new Date().getHours())}${firstName ? `, ${firstName}` : ''}`;
+  // «Buenas *noches*» o «Buenas noches, *Ana*»: la última parte va en cursiva cálida.
+  const g = greeting(new Date().getHours());
+  const [helloTitle, helloAccent] = firstName ? [`${g},`, firstName] : [g.split(' ')[0] ?? g, g.split(' ').slice(1).join(' ')];
   const forToday = (summaries ?? []).filter(isForToday);
   const pending = forToday.filter((s) => s.current.status !== 'met');
   const done = forToday.length - pending.length;
@@ -62,7 +64,7 @@ export default function HoyScreen() {
   const enter = (i: number) => (reduced ? undefined : FadeInDown.duration(420).delay(60 + i * 70));
 
   return (
-    <Screen title={hello} overline={dayLabel(today)}>
+    <Screen title={helloTitle} titleAccent={helloAccent} overline={dayLabel(today)}>
       {forToday.length || todayTasks.length ? (
         <Animated.View entering={enter(0)}>
           <TodayOrbit

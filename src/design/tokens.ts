@@ -19,6 +19,7 @@ export const palette = {
   green400: '#6FD6A0', // estados positivos
   amber400: '#F2B866', // advertencias
   red400: '#F07A8A', // errores
+  starlight: '#F4DDB0', // luz estelar cálida: detalles, fechas y acentos editoriales
 } as const;
 
 export const colors = {
@@ -61,6 +62,11 @@ export const colors = {
   dangerMuted: 'rgba(240, 122, 138, 0.14)',
 
   track: 'rgba(199, 169, 255, 0.10)',
+
+  /** Contrapunto cálido al violeta: coordenadas, estrellas y palabras destacadas. */
+  star: palette.starlight,
+  starMuted: 'rgba(244, 221, 176, 0.14)',
+  hairline: 'rgba(244, 221, 176, 0.18)',
 } as const;
 
 /** Serie categórica para gráficos: violetas primero, acentos controlados después. */
@@ -109,8 +115,9 @@ export const radius = {
 } as const;
 
 /**
- * Plus Jakarta Sans para lectura (geométrica, cálida y muy legible en tamaños pequeños) y Sora para
- * titulares y cifras: le da a Nebula una voz propia, redondeada y algo «espacial».
+ * Plus Jakarta Sans para lectura (geométrica, cálida y muy legible en tamaños pequeños), Sora para
+ * cifras y subtítulos, e Instrument Serif para los grandes titulares: un tono editorial, de cuaderno
+ * de observatorio, que separa a Nebula del aspecto genérico de app de productividad.
  */
 export const fontFamily = {
   regular: 'PlusJakartaSans_400Regular',
@@ -120,12 +127,14 @@ export const fontFamily = {
   display: 'Sora_600SemiBold',
   displayBold: 'Sora_700Bold',
   displayLight: 'Sora_300Light',
+  serif: 'InstrumentSerif_400Regular',
+  serifItalic: 'InstrumentSerif_400Regular_Italic',
 } as const;
 
 export const typography = {
-  hero: { fontFamily: fontFamily.displayLight, fontSize: 40, lineHeight: 46, letterSpacing: -1.2 },
+  hero: { fontFamily: fontFamily.serif, fontSize: 48, lineHeight: 52, letterSpacing: -0.6 },
   display: { fontFamily: fontFamily.displayBold, fontSize: 34, lineHeight: 40, letterSpacing: -1 },
-  title1: { fontFamily: fontFamily.display, fontSize: 26, lineHeight: 32, letterSpacing: -0.6 },
+  title1: { fontFamily: fontFamily.serif, fontSize: 34, lineHeight: 38, letterSpacing: -0.4 },
   title2: { fontFamily: fontFamily.display, fontSize: 20, lineHeight: 26, letterSpacing: -0.4 },
   title3: { fontFamily: fontFamily.display, fontSize: 16, lineHeight: 22, letterSpacing: -0.2 },
   body: { fontFamily: fontFamily.regular, fontSize: 15, lineHeight: 22, letterSpacing: 0 },
