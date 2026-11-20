@@ -6,6 +6,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
+import { Select } from '@/components/forms/Select';
 import { Stepper } from '@/components/forms/Stepper';
 import { TextField } from '@/components/forms/TextField';
 import { Sheet } from '@/components/overlays/Sheet';
@@ -261,25 +262,26 @@ export default function Enfoque() {
         ) : null}
         {mode === 'custom' ? <TextField label="Minutos" value={customMin} onChangeText={setCustomMin} inputMode="numeric" error={customInvalid ? 'Entre 1 y 480 minutos.' : null} /> : null}
       </View>
-      {activeHabits.length ? (
+      {activeHabits.length || openTasks.length ? (
         <View style={styles.section}>
-          <Text variant="overline" tone="accent">CUENTA PARA EL HÁBITO</Text>
-          <View style={styles.wrap}>
-            <Chip role="radio" label="Ninguno" selected={habitId === null} onToggle={() => setHabitId(null)} />
-            {activeHabits.map((h) => (
-              <Chip key={h.id} role="radio" label={h.name} selected={habitId === h.id} onToggle={() => setHabitId(h.id)} />
-            ))}
-          </View>
-        </View>
-      ) : null}
-      {openTasks.length ? (
-        <View style={styles.section}>
-          <Text variant="overline" tone="accent">TRABAJAR EN LA TAREA</Text>
-          <View style={styles.wrap}>
-            <Chip role="radio" label="Ninguna" selected={taskId === null} onToggle={() => setTaskId(null)} />
-            {openTasks.map((t) => (
-              <Chip key={t.id} role="radio" label={t.title} selected={taskId === t.id} onToggle={() => setTaskId(t.id)} />
-            ))}
+          <Text variant="overline" tone="accent">VINCULAR LA SESIÓN</Text>
+          <View style={styles.links}>
+            {activeHabits.length ? (
+              <Select
+                label="Cuenta para el hábito"
+                value={habitId ?? NONE}
+                onChange={(v) => setHabitId(v === NONE ? null : v)}
+                options={[{ value: NONE, label: 'Ninguno' }, ...activeHabits.map((h) => ({ value: h.id, label: h.name }))]}
+              />
+            ) : null}
+            {openTasks.length ? (
+              <Select
+                label="Trabajar en la tarea"
+                value={taskId ?? NONE}
+                onChange={(v) => setTaskId(v === NONE ? null : v)}
+                options={[{ value: NONE, label: 'Ninguna' }, ...openTasks.map((t) => ({ value: t.id, label: t.title }))]}
+              />
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -287,6 +289,9 @@ export default function Enfoque() {
     </ScrollView>
   );
 }
+
+/** Valor de «sin vincular» en los selectores (los id reales son UUID). */
+const NONE = 'ninguno';
 
 /** Radar de distracciones (registro voluntario, F07-012). */
 function DistractionSheet({ visible, onClose, sessionId, abandoned }: { visible: boolean; onClose(): void; sessionId: string | null; abandoned: boolean }) {
@@ -341,6 +346,7 @@ const styles = StyleSheet.create({
   back: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
   section: { gap: spacing[3] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
+  links: { gap: spacing[3], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
   active: { flex: 1, paddingHorizontal: spacing[5], justifyContent: 'space-between', alignItems: 'center' },
   center: { alignItems: 'center', gap: spacing[5] },
   clock: { fontSize: 56, lineHeight: 64 },
