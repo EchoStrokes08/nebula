@@ -112,6 +112,7 @@ export default function RootLayout() {
                   <Stack.Screen name="disponibilidad" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="enfoque" options={{ animation: reducedMotion ? 'none' : 'fade' }} />
                   <Stack.Screen name="estadisticas" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
+                  <Stack.Screen name="resumen" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="revision" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="amigos" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="circulos" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />

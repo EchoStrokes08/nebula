@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { ArrowLeft, ClipboardCheck } from 'lucide-react-native';
+import { ArrowLeft, ClipboardCheck, Sparkles } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -109,6 +109,7 @@ export default function Estadisticas() {
         <Chip role="radio" label="Este mes" selected={period === 'mes'} onToggle={() => setPeriod('mes')} />
         <Button label="Revisión de compromisos" variant="ghost" icon={<ClipboardCheck size={18} color={colors.accentSoft} />} onPress={() => router.push('/revision')} />
       </View>
+      <Button label="Tu resumen del mes y del año" variant="secondary" icon={<Sparkles size={18} color={colors.accentSoft} />} onPress={() => router.push('/resumen')} />
 
       {loading ? <Text tone="secondary">Calculando…</Text> : null}
       {!loading && !anyData ? (
