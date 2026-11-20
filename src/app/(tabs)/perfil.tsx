@@ -1,11 +1,10 @@
-import { router } from 'expo-router';
-import { BarChart3, CalendarClock, ChevronRight, ClipboardCheck, Flag, LogOut, UserRound, type LucideIcon } from 'lucide-react-native';
-import { useState } from 'react';
+import { router, type Href } from 'expo-router';
+import { BarChart3, BookOpen, CalendarClock, CalendarSync, ChevronRight, ClipboardCheck, Flag, LogOut, Settings, Sparkle, Sparkles, StickyNote, UserRound, Users, type LucideIcon } from 'lucide-react-native';
+import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Screen } from '@/components/layout/Screen';
-import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
 import { signOut } from '@/features/auth/api';
@@ -39,39 +38,50 @@ export default function PerfilScreen() {
         />
       )}
       {session ? (
-        <View style={styles.menu}>
-          <MenuItem icon={BarChart3} label="Estadísticas" hint="Tu evolución, tu perfil de productividad y el radar" href="/estadisticas" />
-          <MenuItem icon={Flag} label="Metas y proyectos" hint="Lo que estás construyendo" href="/metas" />
-          <MenuItem icon={ClipboardCheck} label="Revisión de compromisos" hint="Lo prometido frente a lo hecho" href="/revision" />
-          <MenuItem icon={CalendarClock} label="Disponibilidad" hint="Cuándo puede planificar Nebula" href="/disponibilidad" />
-        </View>
-      ) : null}
-      {session ? <>
-        <Button label="Nota rápida" onPress={() => router.push('/captura')} />
-        <Button label="Asistente y recomendaciones" variant="secondary" onPress={() => router.push('/asistente')} />
-        <Button label="Diario y revisión semanal" variant="secondary" onPress={() => router.push('/diario')} />
-        <Button label="Mapa de progreso" variant="secondary" onPress={() => router.push('/constelacion')} />
-        <Button label="Enfoque con amigos" variant="secondary" onPress={() => router.push('/salas')} />
-        <Button label="Integraciones" variant="secondary" onPress={() => router.push('/integraciones')} />
-      </> : null}
-      {session ? <Button label="Configuración y privacidad" variant="secondary" onPress={() => router.push('/configuracion')} /> : null}
-      {session ? (
-        <Button
-          label="Cerrar sesión"
-          variant="secondary"
-          icon={<LogOut size={18} color={colors.text} />}
-          loading={busy}
-          onPress={async () => {
-            setBusy(true);
-            await signOut().catch(() => setBusy(false));
-          }}
-        />
+        <>
+          <Section title="TU PROGRESO">
+            <MenuItem icon={BarChart3} label="Estadísticas" hint="Tu evolución, tu perfil de productividad y el radar" href="/estadisticas" />
+            <MenuItem icon={Flag} label="Metas y proyectos" hint="Lo que estás construyendo" href="/metas" />
+            <MenuItem icon={ClipboardCheck} label="Revisión de compromisos" hint="Lo prometido frente a lo hecho" href="/revision" />
+            <MenuItem icon={BookOpen} label="Diario y revisión semanal" hint="Cómo te fue y qué ajustar" href="/diario" />
+            <MenuItem icon={Sparkle} label="Mapa de progreso" hint="Tu constelación de logros" href="/constelacion" />
+          </Section>
+          <Section title="HERRAMIENTAS">
+            <MenuItem icon={Sparkles} label="Asistente y recomendaciones" hint="Pregúntale a Nebula por tu día o tus metas" href="/asistente" />
+            <MenuItem icon={StickyNote} label="Nota rápida" hint="Apunta algo antes de que se te olvide" href="/captura" />
+            <MenuItem icon={Users} label="Enfoque con amigos" hint="Salas para concentrarse juntos" href="/salas" />
+            <MenuItem icon={CalendarClock} label="Disponibilidad" hint="Cuándo puede planificar Nebula" href="/disponibilidad" />
+            <MenuItem icon={CalendarSync} label="Integraciones" hint="Google Calendar y otros calendarios" href="/integraciones" />
+          </Section>
+          <Section title="CUENTA">
+            <MenuItem icon={Settings} label="Configuración y privacidad" hint="Perfil, notificaciones, calendario y apariencia" href="/configuracion" />
+            <Pressable
+              onPress={async () => { setBusy(true); await signOut().catch(() => setBusy(false)); }}
+              disabled={busy}
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar sesión"
+              style={({ pressed }) => [styles.item, styles.last, pressed && styles.itemPressed]}
+            >
+              <LogOut size={20} color={colors.danger} />
+              <Text variant="bodyStrong" style={[styles.flex, { color: colors.danger }]}>{busy ? 'Cerrando sesión…' : 'Cerrar sesión'}</Text>
+            </Pressable>
+          </Section>
+        </>
       ) : null}
     </Screen>
   );
 }
 
-function MenuItem({ icon: Icon, label, hint, href }: { icon: LucideIcon; label: string; hint: string; href: '/estadisticas' | '/metas' | '/revision' | '/disponibilidad' }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text variant="overline" tone="accent">{title}</Text>
+      <View style={styles.menu}>{children}</View>
+    </View>
+  );
+}
+
+function MenuItem({ icon: Icon, label, hint, href }: { icon: LucideIcon; label: string; hint: string; href: Href }) {
   return (
     <Pressable onPress={() => router.push(href)} accessibilityRole="button" accessibilityLabel={`${label}. ${hint}`} style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}>
       <Icon size={20} color={colors.accentSoft} />
@@ -88,6 +98,8 @@ const styles = StyleSheet.create({
   menu: { borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing[4], padding: spacing[4], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
   itemPressed: { backgroundColor: colors.surfacePressed },
+  last: { borderBottomWidth: 0 },
+  section: { gap: spacing[2] },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
