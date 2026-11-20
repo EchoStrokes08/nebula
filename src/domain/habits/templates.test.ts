@@ -1,7 +1,7 @@
 import { habitFormSchema, periodOptionsFor } from '@/features/habits/validation';
 import { HABIT_ICONS } from '@/features/habits/icons';
 
-import { describeTemplate, HABIT_TEMPLATES, searchTemplates, TEMPLATE_CATEGORIES } from './templates';
+import { describeTemplate, groupTemplates, HABIT_TEMPLATES, searchTemplates, TEMPLATE_CATEGORIES, templateCount } from './templates';
 
 jest.mock('lucide-react-native', () => new Proxy({}, { get: () => () => null }));
 
@@ -20,6 +20,18 @@ describe('hábitos sugeridos', () => {
     expect(searchTemplates('MEDITÁ').map((x) => x.name)).toContain('Meditar');
     expect(searchTemplates('agua').map((x) => x.name)).toContain('Beber agua');
     expect(searchTemplates('', 'ejercicio').every((x) => x.category === 'ejercicio')).toBe(true);
+  });
+  it('agrupa por categoría en orden y sin grupos vacíos', () => {
+    const groups = groupTemplates(HABIT_TEMPLATES);
+    expect(groups.map((g) => g.category.id)).toEqual(TEMPLATE_CATEGORIES.map((c) => c.id));
+    expect(groups.reduce((n, g) => n + g.items.length, 0)).toBe(HABIT_TEMPLATES.length);
+    expect(groupTemplates(searchTemplates('agua')).every((g) => g.items.length > 0)).toBe(true);
+    expect(templateCount(null)).toBe(HABIT_TEMPLATES.length);
+    expect(templateCount('cuidado')).toBe(HABIT_TEMPLATES.filter((x) => x.category === 'cuidado').length);
+  });
+  it('los nombres no se repiten', () => {
+    const names = HABIT_TEMPLATES.map((x) => x.name.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
   });
   it('describe el objetivo en lenguaje natural', () => {
     expect(describeTemplate({ kind: 'quantity', period: 'day', target: 8, unit: 'vasos' })).toBe('8 vasos al día');
