@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { TimePicker } from '@/components/forms/TimePicker';
 import { TimeRangeSlider } from '@/components/forms/TimeSlider';
 import { useToast } from '@/components/overlays/UndoToast';
 import { Button } from '@/components/primitives/Button';
@@ -16,6 +17,9 @@ import { minutesOf, normalizeTime } from '@/lib/time';
 import { SkeletonList } from '@/components/feedback/Skeleton';
 
 type Draft = { weekday: number; start: string; end: string };
+
+/** El deslizador llega a las 24:00; el servidor y los campos de hora usan 23:59 como fin del día. */
+const endOfDay = (t: string) => (t === '24:00' ? '23:59' : t);
 
 export default function Disponibilidad() {
   const insets = useSafeAreaInsets();
@@ -32,7 +36,7 @@ export default function Disponibilidad() {
     const clean: Draft[] = [];
     for (const d of current) {
       const s = normalizeTime(d.start);
-      const e = normalizeTime(d.end);
+      const e = normalizeTime(endOfDay(d.end));
       if (!s || !e || minutesOf(e) <= minutesOf(s)) return toast('Revisa las horas: cada franja debe terminar después de empezar.');
       clean.push({ weekday: d.weekday, start: s, end: e });
     }
@@ -59,7 +63,13 @@ export default function Disponibilidad() {
             {rows.length === 0 ? <Text variant="callout" tone="tertiary">Sin franjas: no se planificará este día.</Text> : null}
             {rows.map(({ w, i }) => (
               <View key={i} style={styles.slot}>
-                <View style={styles.flex}><TimeRangeSlider label={`Franja del ${d.name}`} start={w.start} end={w.end} onChange={(r) => set(i, r)} /></View>
+                <View style={[styles.flex, styles.slotBody]}>
+                  <TimeRangeSlider label={`Franja del ${d.name}`} start={w.start} end={w.end} onChange={(r) => set(i, r)} />
+                  <View style={styles.times}>
+                    <View style={styles.flex}><TimePicker label="Empieza" value={w.start} max={minutesOf(endOfDay(w.end)) - 5} onChange={(v) => set(i, { start: v })} /></View>
+                    <View style={styles.flex}><TimePicker label="Termina" value={endOfDay(w.end)} min={minutesOf(w.start) + 5} onChange={(v) => set(i, { end: v })} /></View>
+                  </View>
+                </View>
                 <Pressable onPress={() => setDraft(current.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Quitar franja del ${d.name}`} style={styles.remove}>
                   <X size={18} color={colors.textTertiary} />
                 </Pressable>
@@ -79,7 +89,9 @@ const styles = StyleSheet.create({
   back: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
   card: { gap: spacing[3], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[3] },
-  slot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  slot: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing[2] },
+  slotBody: { gap: spacing[3] },
+  times: { flexDirection: 'row', gap: spacing[3] },
   remove: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
 });
