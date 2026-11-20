@@ -172,12 +172,12 @@ export default function Disponibilidad() {
         })}
         <View style={styles.legend}>
           <View style={[styles.swatch, { backgroundColor: colors.accentBright }]} /><Text variant="caption" tone="tertiary">Libre para planificar</Text>
-          <View style={[styles.swatch, { backgroundColor: colors.surfaceRaised }]} /><Text variant="caption" tone="tertiary">Ocupado</Text>
+          <View style={[styles.swatch, { backgroundColor: colors.borderStrong }]} /><Text variant="caption" tone="tertiary">Ocupado</Text>
         </View>
         <Text variant="caption" tone="tertiary">Al planificar también se descuentan tus eventos de la agenda y de Google Calendar.</Text>
       </View>
 
-      <Button label="Guardar" onPress={submit} loading={save.isPending} disabled={!draft || errors.length > 0} fullWidth />
+      <Button label="Guardar" onPress={submit} loading={save.isPending} disabled={(!draft && !!loaded && (loaded.days.length > 0 || loaded.legacy)) || errors.length > 0} fullWidth />
     </KeyboardScroll>
   );
 }
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   freeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   freeDay: { width: 16 },
   bar: { flex: 1, height: 12, borderRadius: radius.pill, backgroundColor: colors.track, overflow: 'hidden' },
-  daySpan: { position: 'absolute', top: 0, bottom: 0, backgroundColor: colors.surfaceRaised },
+  daySpan: { position: 'absolute', top: 0, bottom: 0, backgroundColor: colors.borderStrong },
   freeSpan: { position: 'absolute', top: 0, bottom: 0, backgroundColor: colors.accentBright },
   freeTotal: { width: 104, textAlign: 'right' },
   legend: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
