@@ -65,6 +65,7 @@ export default function HoyScreen() {
 
   return (
     <Screen title={helloTitle} titleAccent={helloAccent} overline={dayLabel(today)}>
+      <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       {forToday.length || todayTasks.length ? (
         <Animated.View entering={enter(0)}>
           <TodayOrbit
@@ -79,7 +80,6 @@ export default function HoyScreen() {
           />
         </Animated.View>
       ) : null}
-      <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       <NotificationPrompt />
       <QuickActionsRow />
       <NotesBoard today={today} />

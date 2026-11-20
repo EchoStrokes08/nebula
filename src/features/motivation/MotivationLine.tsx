@@ -6,12 +6,13 @@ import { colors, radius, spacing } from '@/design/tokens';
 import { chooseMessage, type MotivationContext } from '@/domain/motivation/engine';
 import { useToday } from '@/features/habits/useToday';
 
+import { PhraseHero } from './PhraseHero';
 import { useRecentMessages } from './recent';
 import { useMotivationContext } from './useMotivationContext';
 
 /** Mensaje contextual del día (Hoy, antes de enfocarse, cierre). Estable durante el día. */
-/** `extra` añade hechos reales del contexto concreto (p. ej. la posición en un reto). */
-export function MotivationLine({ moment, extra }: { moment: MotivationContext['moment']; extra?: Partial<MotivationContext> }) {
+/** `extra` añade hechos reales del contexto concreto (p. ej. la posición en un reto). `hero` lo muestra en grande (Hoy). */
+export function MotivationLine({ moment, extra, hero }: { moment: MotivationContext['moment']; extra?: Partial<MotivationContext>; hero?: boolean }) {
   const base = useMotivationContext(moment);
   const ctx = base ? { ...base, ...extra } : null;
   const today = useToday();
@@ -31,6 +32,7 @@ export function MotivationLine({ moment, extra }: { moment: MotivationContext['m
     remember(chosen.id);
   }, [chosen?.id, pinned, key, pin, remember]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!chosen) return null;
+  if (hero) return <PhraseHero label={moment === 'cierre' ? 'PARA CERRAR EL DÍA' : 'FRASE DE HOY'} text={chosen.text} />;
   return (
     <View style={styles.root} accessibilityRole="text">
       <View style={styles.bar} />
