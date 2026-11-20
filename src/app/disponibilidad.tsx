@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TextField } from '@/components/forms/TextField';
+import { TimeRangeSlider } from '@/components/forms/TimeSlider';
 import { useToast } from '@/components/overlays/UndoToast';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -58,9 +58,8 @@ export default function Disponibilidad() {
             </View>
             {rows.length === 0 ? <Text variant="callout" tone="tertiary">Sin franjas: no se planificará este día.</Text> : null}
             {rows.map(({ w, i }) => (
-              <View key={i} style={styles.row}>
-                <View style={styles.flex}><TextField label="Desde" value={w.start} onChangeText={(v) => set(i, { start: v })} inputMode="numeric" maxLength={5} /></View>
-                <View style={styles.flex}><TextField label="Hasta" value={w.end} onChangeText={(v) => set(i, { end: v })} inputMode="numeric" maxLength={5} /></View>
+              <View key={i} style={styles.slot}>
+                <View style={styles.flex}><TimeRangeSlider label={`Franja del ${d.name}`} start={w.start} end={w.end} onChange={(r) => set(i, r)} /></View>
                 <Pressable onPress={() => setDraft(current.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Quitar franja del ${d.name}`} style={styles.remove}>
                   <X size={18} color={colors.textTertiary} />
                 </Pressable>
@@ -80,6 +79,7 @@ const styles = StyleSheet.create({
   back: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
   card: { gap: spacing[3], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   row: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[3] },
+  slot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   remove: { width: 44, height: 48, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1 },
 });

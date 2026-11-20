@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '@/components/forms/Chip';
 import { DateField } from '@/components/forms/DateField';
 import { TextField } from '@/components/forms/TextField';
+import { DAY_MINUTES, TimeSlider } from '@/components/forms/TimeSlider';
 import { Sheet } from '@/components/overlays/Sheet';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -21,7 +22,7 @@ import { createTask, updateTask } from '@/features/tasks/api';
 import { useTasks } from '@/features/tasks/hooks';
 import { confirmAction } from '@/lib/confirm';
 import { dayKeyOf, startOfDayInstant, type DayKey } from '@/lib/dates';
-import { hhmm, minutesOf, normalizeTime } from '@/lib/time';
+import { formatDuration, hhmm, minutesOf, normalizeTime } from '@/lib/time';
 
 import { createEvent, deleteEvent, updateEvent, type EventRecord } from './api';
 import { useAgendaMutation, useAvailability } from './hooks';
@@ -94,6 +95,17 @@ export function EventEditor({ event, presetDay }: { event?: EventRecord; presetD
       });
     }
   });
+  // Mover el inicio arrastra el final y conserva la duración, como en un calendario.
+  const moveStart = (next: string) => {
+    const s0 = normalizeTime(start); const e0 = normalizeTime(end);
+    const span = s0 && e0 && minutesOf(e0) > minutesOf(s0) ? minutesOf(e0) - minutesOf(s0) : 60;
+    setStart(next);
+    setEnd(hhmm(Math.min(minutesOf(next) + span, DAY_MINUTES - 1)));
+  };
+  const endHint = (() => {
+    const s0 = normalizeTime(start); const e0 = normalizeTime(end);
+    return s0 && e0 && minutesOf(e0) > minutesOf(s0) ? `Dura ${formatDuration(minutesOf(e0) - minutesOf(s0))}` : undefined;
+  })();
   const close = () => (router.canGoBack() ? router.back() : router.replace('/agenda'));
 
   const submit = () => {
@@ -156,10 +168,10 @@ export function EventEditor({ event, presetDay }: { event?: EventRecord; presetD
         <Chip role="radio" label="Todo el día" selected={allDay} onToggle={() => setAllDay(true)} />
       </View>
       {!allDay ? (
-        <View style={styles.row}>
-          <View style={styles.flex}><TextField label="Empieza" value={start} onChangeText={setStart} error={errors.start} inputMode="numeric" maxLength={5} editable={!readOnly} /></View>
-          <View style={styles.flex}><TextField label="Termina" value={end} onChangeText={setEnd} error={errors.end} inputMode="numeric" maxLength={5} editable={!readOnly} /></View>
-        </View>
+        <>
+          <TimeSlider label="Empieza" value={start} step={5} disabled={readOnly} error={errors.start} onChange={moveStart} />
+          <TimeSlider label="Termina" value={end} step={5} min={5} max={DAY_MINUTES - 1} disabled={readOnly} error={errors.end} hint={endHint} onChange={setEnd} />
+        </>
       ) : null}
 
       <Section title="Categoría">

@@ -4,6 +4,7 @@ import { Switch, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/layout/Screen';
 import { TextField } from '@/components/forms/TextField';
+import { TimeSlider } from '@/components/forms/TimeSlider';
 import { Chip } from '@/components/forms/Chip';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -70,11 +71,14 @@ export default function Configuracion() {
     }, 'Permiso concedido.')} />
     {prefs.data ? <>
       {(['habits', 'tasks', 'events', 'social', 'weekly_summary', 'motivation'] as const).map((kind) => <View key={kind} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}><Text>{{ habits: 'Hábitos', tasks: 'Tareas', events: 'Eventos', social: 'Actividad social', weekly_summary: 'Resumen semanal', motivation: 'Motivación' }[kind]}</Text><Switch accessibilityLabel={`Notificaciones de ${kind}`} value={kind === 'motivation' ? prefs.data!.notifications[kind] !== false : !!prefs.data!.notifications[kind]} disabled={update.isPending} onValueChange={(value) => update.mutate({ notifications: { ...prefs.data!.notifications, [kind]: value } })} /></View>)}
-      <TextField label="Silencio desde (HH:MM)" value={start} onChangeText={setStart} placeholder="22:00" />
-      <TextField label="Silencio hasta (HH:MM)" value={end} onChangeText={setEnd} placeholder="07:00" />
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing[2] }}><Text>Horas de silencio</Text><Switch accessibilityLabel="Horas de silencio" value={!!(start && end)} onValueChange={(on) => { setStart(on ? '22:00' : ''); setEnd(on ? '07:00' : ''); }} /></View>
+      {start && end ? <>
+        <TimeSlider label="Silencio desde" value={start} onChange={setStart} />
+        <TimeSlider label="Silencio hasta" value={end} onChange={setEnd} hint="Si «hasta» es antes que «desde», el silencio cruza la medianoche." />
+      </> : null}
       <TextField label="Máximo de recordatorios diarios (0–50)" value={limit} onChangeText={setLimit} keyboardType="numeric" />
       <Button label="Guardar recordatorios" disabled={busy || update.isPending} onPress={() => void act(async () => {
-        if (!validateQuietHours(start, end)) throw new Error('Escribe las dos horas en formato HH:MM o deja ambas vacías.');
+        if (!validateQuietHours(start, end)) throw new Error('Elige las dos horas de silencio o desactívalo.');
         if (!/^\d+$/.test(limit) || Number(limit) > 50) throw new Error('El máximo debe estar entre 0 y 50.');
         await update.mutateAsync({ quiet_hours_start: start || null, quiet_hours_end: end || null, max_notifications_per_day: Number(limit) });
         await resetReminderSignature();
