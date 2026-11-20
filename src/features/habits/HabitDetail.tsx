@@ -15,6 +15,7 @@ import { ConsistencyGrid } from '@/features/habits/ConsistencyGrid';
 import { formatNumber, KIND_LABEL, percent, progressText, unitLabel } from '@/features/habits/format';
 import { HabitRow } from '@/features/habits/HabitRow';
 import { HabitStats } from '@/features/habits/HabitStats';
+import { RestCard } from '@/features/habits/RestCard';
 import { HabitRecommendations } from '@/features/habits/Recommendations';
 import { useTimeZone } from '@/features/habits/useToday';
 import { useHabitMutation, useHabitSummaries, useUndoLog } from '@/features/habits/hooks';
@@ -186,6 +187,7 @@ export function HabitDetail({ id, embedded }: { id: string; embedded?: boolean }
           }
         />
       </View>
+      {!paused ? <RestCard habit={habit} logs={s.logs} today={today} weekStartsOn={weekStartsOn} /> : null}
     </ScrollView>
   );
 }
