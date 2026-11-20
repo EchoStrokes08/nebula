@@ -1,4 +1,5 @@
 import { db, unwrap, unwrapOne } from '@/data/db';
+import { freeWindows, fromLegacyWindows, type BusyBlock, type DayHours } from '@/domain/calendar/schedule';
 import type { CalendarEvent } from '@/domain/calendar/expand';
 import type { DayKey } from '@/lib/dates';
 
@@ -98,6 +99,36 @@ export async function fetchAvailability(): Promise<Window[]> {
 export async function saveAvailability(windows: Omit<Window, 'id'>[]) {
   unwrap(await db().from('availability_windows').delete().gte('weekday', 0));
   if (windows.length) unwrap(await db().from('availability_windows').insert(windows.map((w) => ({ weekday: w.weekday, start_time: w.start, end_time: w.end }))));
+}
+
+/** Horario descrito como «tu día» y «cuando estás ocupado» (modelo nuevo de disponibilidad). */
+export interface Schedule { days: DayHours[]; busy: BusyBlock[]; legacy: boolean }
+
+/**
+ * Lee el horario. Si la persona solo tiene franjas libres del modelo anterior, se convierten
+ * (`legacy: true`) para que las vea como día + ocupado; se guardan al pulsar Guardar.
+ */
+export async function fetchSchedule(): Promise<Schedule> {
+  const [days, busy] = await Promise.all([
+    db().from('day_hours').select('weekday, start_time, end_time').order('weekday'),
+    db().from('busy_blocks').select('label, weekdays, start_time, end_time').order('created_at'),
+  ]);
+  const d = unwrap(days) as { weekday: number; start_time: string; end_time: string }[];
+  const b = unwrap(busy) as { label: string; weekdays: number[]; start_time: string; end_time: string }[];
+  if (d.length) {
+    return {
+      days: d.map((r) => ({ weekday: r.weekday, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) })),
+      busy: b.map((r) => ({ label: r.label, weekdays: r.weekdays, start: r.start_time.slice(0, 5), end: r.end_time.slice(0, 5) })),
+      legacy: false,
+    };
+  }
+  const windows = await fetchAvailability();
+  return { ...fromLegacyWindows(windows), legacy: windows.length > 0 };
+}
+
+/** Guarda el horario y las franjas libres que resultan, de una sola vez. */
+export async function saveSchedule({ days, busy }: { days: DayHours[]; busy: BusyBlock[] }) {
+  unwrap(await db().rpc('save_schedule', { p_days: days, p_busy: busy, p_windows: freeWindows(days, busy) }));
 }
 
 export interface FocusSessionRecord {

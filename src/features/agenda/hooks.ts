@@ -7,6 +7,7 @@ import * as api from './api';
 export const agendaKeys = {
   events: (uid?: string) => ['events', uid] as const,
   availability: (uid?: string) => ['availability', uid] as const,
+  schedule: (uid?: string) => ['availability', uid, 'schedule'] as const,
   focus: (uid?: string) => ['focus_sessions', uid] as const,
   distractions: (uid?: string) => ['distractions', uid] as const,
 };
@@ -19,6 +20,12 @@ export function useEvents() {
 export function useAvailability() {
   const uid = useAuth((s) => s.session?.user.id);
   return useQuery({ queryKey: agendaKeys.availability(uid), queryFn: api.fetchAvailability, enabled: !!uid });
+}
+
+/** Horario (tu día + ocupado). Comparte prefijo con las franjas para invalidarse juntos. */
+export function useSchedule() {
+  const uid = useAuth((s) => s.session?.user.id);
+  return useQuery({ queryKey: agendaKeys.schedule(uid), queryFn: api.fetchSchedule, enabled: !!uid });
 }
 
 const NINETY_DAYS = 90 * 86_400_000;

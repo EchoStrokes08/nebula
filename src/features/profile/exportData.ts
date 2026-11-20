@@ -22,6 +22,8 @@ const TABLES = [
   'goal_progress_events',
   'calendar_events',
   'availability_windows',
+  'day_hours',
+  'busy_blocks',
   'focus_sessions',
   'distraction_logs',
   'notifications',
