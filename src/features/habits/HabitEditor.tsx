@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { ArrowLeft, ChevronDown, ChevronUp, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
 import { TextField } from '@/components/forms/TextField';
+import { TimeSlider } from '@/components/forms/TimeSlider';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing, userColors, type UserColor } from '@/design/tokens';
@@ -16,7 +17,9 @@ import { FormMessage } from '@/features/auth/FormMessage';
 import { createHabit, setTarget as setTargetVersion, updateHabit, type HabitRecord } from '@/features/habits/api';
 import { COLOR_NAMES, KIND_LABEL } from '@/features/habits/format';
 import { useHabitMutation } from '@/features/habits/hooks';
-import { HABIT_ICONS } from '@/features/habits/icons';
+import { HABIT_ICONS, HabitIcon } from '@/features/habits/icons';
+import { TemplatePicker } from '@/features/habits/TemplatePicker';
+import { describeTemplate, type HabitTemplate } from '@/domain/habits/templates';
 import { useToday } from '@/features/habits/useToday';
 import { habitFormSchema, periodOptionsFor, type HabitForm } from '@/features/habits/validation';
 import { WEEKDAYS } from '@/features/onboarding/options';
@@ -52,6 +55,33 @@ export function HabitEditor({ habit }: HabitEditorProps) {
   const [priority, setPriority] = useState(habit?.priority ?? 2);
   const [reminder, setReminder] = useState(habit?.reminderTime ?? '');
   const [errors, setErrors] = useState<FieldErrors<HabitForm>>({});
+  // Crear: primero se elige una sugerencia (o «uno propio»); editar va directo al formulario.
+  const [step, setStep] = useState<'elegir' | 'ajustar'>(editing ? 'ajustar' : 'elegir');
+  const [template, setTemplate] = useState<HabitTemplate | null>(null);
+  const [more, setMore] = useState(editing);
+  const pickTemplate = (t: HabitTemplate) => {
+    setTemplate(t);
+    setName(t.name);
+    setKind(t.kind);
+    setPeriod(t.period);
+    setTarget(t.kind === 'binary' ? '' : String(t.target));
+    setUnit(t.unit ?? '');
+    setSessionMin(str(t.sessionMin));
+    setMinTarget(str(t.minTarget));
+    setDays(t.days ?? [0, 1, 2, 3, 4, 5, 6]);
+    setIcon(t.icon);
+    setColor(t.color);
+    setReminder(t.reminder ?? '');
+    setErrors({});
+    setMore(false);
+    setStep('ajustar');
+  };
+  const startScratch = (initial?: string) => {
+    setTemplate(null);
+    if (initial) setName(initial);
+    setMore(true);
+    setStep('ajustar');
+  };
   const [failure, setFailure] = useState<string | null>(null);
   const create = useHabitMutation(createHabit);
   const save = useHabitMutation(async (v: HabitForm) => {
@@ -136,9 +166,34 @@ export function HabitEditor({ habit }: HabitEditorProps) {
         </Pressable>
       </View>
 
+      {step === 'elegir' ? (
+        <>
+          <Text tone="secondary">Elige uno de los más populares y ajústalo, o crea el tuyo.</Text>
+          <TemplatePicker onPick={pickTemplate} onScratch={startScratch} />
+        </>
+      ) : null}
+      {step === 'ajustar' && !editing ? (
+        <Pressable onPress={() => setStep('elegir')} accessibilityRole="button" style={styles.backRow} hitSlop={8}>
+          <ArrowLeft size={18} color={colors.textSecondary} />
+          <Text variant="callout" tone="secondary">Elegir otro hábito</Text>
+        </Pressable>
+      ) : null}
+      {step === 'ajustar' && template ? (
+        <View style={[styles.summary, { borderColor: `${userColors[color]}66` }]}>
+          <View style={[styles.summaryIcon, { backgroundColor: `${userColors[color]}22` }]}>
+            <HabitIcon name={icon} size={26} color={userColors[color]} strokeWidth={2} />
+          </View>
+          <View style={styles.flex}>
+            <Text variant="title3" numberOfLines={1}>{name || template.name}</Text>
+            <Text variant="caption" tone="accent">{describeTemplate({ kind, period, target: kind === 'binary' ? 1 : (num(target) ?? 0), unit, sessionMin: num(sessionMin) })}</Text>
+            <Text variant="caption" tone="tertiary">{template.why}</Text>
+          </View>
+        </View>
+      ) : null}
+      {step === 'ajustar' ? <>
       <TextField label="Nombre" value={name} onChangeText={setName} error={errors.name} placeholder="Practicar inglés" maxLength={80} />
 
-      <Section title="Tipo">
+      {more ? <Section title="Tipo">
         {editing ? (
           <Text variant="bodyStrong">{KIND_LABEL[kind].title}</Text>
         ) : (
@@ -151,7 +206,7 @@ export function HabitEditor({ habit }: HabitEditorProps) {
         <Text variant="callout" tone="secondary">
           {editing ? 'El tipo no se puede cambiar porque cambiaría el significado de tu historial.' : KIND_LABEL[kind].help}
         </Text>
-      </Section>
+      </Section> : null}
 
       {kind !== 'binary' ? (
         <Section title="Objetivo">
@@ -174,7 +229,7 @@ export function HabitEditor({ habit }: HabitEditorProps) {
           {kind === 'flexible' ? (
             <TextField label="Mínimo por sesión (min)" value={sessionMin} onChangeText={setSessionMin} keyboardType="decimal-pad" inputMode="decimal" error={errors.sessionMin} />
           ) : null}
-          {kind !== 'reduction' ? (
+          {kind !== 'reduction' && more ? (
             <TextField
               label="Versión mínima (opcional)"
               hint="Lo que harías en un día difícil. Se usa en el modo recuperación."
@@ -210,9 +265,19 @@ export function HabitEditor({ habit }: HabitEditorProps) {
             <Chip key={t || 'none'} role="radio" label={t || 'Sin recordatorio'} selected={(normalizeTime(reminder) ?? '') === t} onToggle={() => setReminder(t)} />
           ))}
         </View>
-        <TextField label="Otra hora (HH:MM)" value={reminder} onChangeText={setReminder} inputMode="numeric" maxLength={5} hint="Solo los días programados y si aún no lo has hecho. Respeta tus horas de silencio." />
+        {reminder.trim() ? <TimeSlider label="Hora del recordatorio" value={reminder} onChange={setReminder} step={5} /> : null}
+        <Text variant="caption" tone="secondary">Solo los días programados y si aún no lo has hecho. Respeta tus horas de silencio.</Text>
       </Section>
 
+      {!editing ? (
+        <Pressable onPress={() => setMore((m) => !m)} accessibilityRole="button" accessibilityState={{ expanded: more }} style={styles.more}>
+          <Text variant="bodyStrong" style={styles.flex}>{more ? 'Menos opciones' : 'Más opciones'}</Text>
+          <Text variant="caption" tone="tertiary">Tipo, versión mínima, icono, color y prioridad</Text>
+          {more ? <ChevronUp size={18} color={colors.textSecondary} /> : <ChevronDown size={18} color={colors.textSecondary} />}
+        </Pressable>
+      ) : null}
+
+      {more ? <>
       <Section title="Icono">
         <View style={styles.wrap}>
           {Object.entries(HABIT_ICONS).map(([key, { icon: I, label }]) => (
@@ -252,6 +317,7 @@ export function HabitEditor({ habit }: HabitEditorProps) {
           ))}
         </View>
       </Section>
+      </> : null}
 
       {editing ? (
         <Text variant="caption" tone="tertiary">
@@ -260,6 +326,7 @@ export function HabitEditor({ habit }: HabitEditorProps) {
       ) : null}
       {failure ? <FormMessage tone="danger">{failure}</FormMessage> : null}
       <Button label={editing ? 'Guardar cambios' : 'Crear hábito'} onPress={submit} loading={busy} fullWidth />
+      </> : null}
     </ScrollView>
   );
 }
@@ -295,4 +362,8 @@ const styles = StyleSheet.create({
   },
   swatch: { width: 32, height: 32, borderRadius: 16, margin: 6 },
   swatchActive: { borderWidth: 3, borderColor: colors.text },
+  backRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], alignSelf: 'flex-start' },
+  summary: { flexDirection: 'row', alignItems: 'center', gap: spacing[4], padding: spacing[4], borderRadius: radius.xl, backgroundColor: colors.card, borderWidth: 1 },
+  summaryIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  more: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing[2], padding: spacing[4], borderRadius: radius.lg, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
 });
