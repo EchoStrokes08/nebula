@@ -20,7 +20,7 @@ function Swatch({ choice, selected, onPress }: { choice: SkyChoice; selected: bo
         {selected ? <View style={styles.check}><Check size={12} color="#fff" strokeWidth={3} /></View> : null}
       </LinearGradient>
       <Text variant="caption">{name}</Text>
-      <Text variant="caption" tone="tertiary" numberOfLines={1}>{hint}</Text>
+      <Text variant="caption" tone="tertiary">{hint}</Text>
     </Pressable>
   );
 }
