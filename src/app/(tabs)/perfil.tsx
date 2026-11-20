@@ -47,7 +47,7 @@ export default function PerfilScreen() {
         </View>
       ) : null}
       {session ? <>
-        <Button label="Captura rápida" onPress={() => router.push('/captura')} />
+        <Button label="Nota rápida" onPress={() => router.push('/captura')} />
         <Button label="Asistente y recomendaciones" variant="secondary" onPress={() => router.push('/asistente')} />
         <Button label="Diario y revisión semanal" variant="secondary" onPress={() => router.push('/diario')} />
         <Button label="Mapa de progreso" variant="secondary" onPress={() => router.push('/constelacion')} />

@@ -5,7 +5,7 @@ import { SectionHeader } from '@/components/layout/SectionHeader';
 import { ProgressRing } from '@/components/progress/ProgressRing';
 import { StyleSheet, View } from 'react-native';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
-import { MotivationLine } from '@/features/motivation/MotivationLine';
+import { TodayPhrase } from '@/features/motivation/TodayPhrase';
 import { NotificationPrompt } from '@/features/notifications/NotificationPrompt';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
@@ -22,6 +22,7 @@ import { TaskRow } from '@/features/tasks/TaskRow';
 import { analyzeDag } from '@/domain/tasks/dag';
 import { SkeletonList } from '@/components/feedback/Skeleton';
 import { QuickActionsRow } from '@/features/home/QuickActionsRow';
+import { NotesBoard } from '@/features/notes/PostIt';
 import { useMyProfile } from '@/features/profile/useMyProfile';
 
 function greeting(hour: number) {
@@ -75,9 +76,10 @@ export default function HoyScreen() {
           ]}
         />
       ) : null}
-      <MotivationLine moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
+      <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       <NotificationPrompt />
       <QuickActionsRow />
+      <NotesBoard today={today} />
       <GoalsShortcut />
       {recovery.map((s) => (
         <View key={s.habit.id} style={styles.recovery} accessibilityRole="summary">

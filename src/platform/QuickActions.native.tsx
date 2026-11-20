@@ -10,7 +10,7 @@ export function QuickActions() {
   });
   useEffect(() => {
     void Actions.isSupported().then((supported) => supported ? Actions.setItems([
-      { id: 'capture', title: 'Captura rápida', params: { href: '/captura' } },
+      { id: 'capture', title: 'Nota rápida', params: { href: '/captura' } },
       { id: 'focus', title: 'Iniciar enfoque', params: { href: '/enfoque' } },
       { id: 'today', title: 'Ver mi día', params: { href: '/hoy' } },
     ]) : undefined).catch(() => {});

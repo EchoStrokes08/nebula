@@ -284,7 +284,7 @@ export default function Asistente() {
         {showSettings ? <ChevronUp size={16} color={colors.accentSoft} /> : <ChevronDown size={16} color={colors.accentSoft} />}
       </Pressable>
       {showSettings ? <Personalize /> : null}
-      <Button label="Captura rápida sin IA" variant="secondary" onPress={() => router.push('/captura')} />
+      <Button label="Nota rápida sin IA" variant="secondary" onPress={() => router.push('/captura')} />
     </Screen>
   );
 }

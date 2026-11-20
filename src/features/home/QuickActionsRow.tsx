@@ -1,5 +1,5 @@
 import { router, type Href } from 'expo-router';
-import { CalendarClock, Lightbulb, Sparkles, Timer, type LucideIcon } from 'lucide-react-native';
+import { CalendarClock, Sparkles, StickyNote, Timer, type LucideIcon } from 'lucide-react-native';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/primitives/Text';
@@ -10,7 +10,7 @@ const ACTIONS: { label: string; hint: string; icon: LucideIcon; color: string; h
   { label: 'Pregunta a Nebula', hint: 'Tu asistente IA', icon: Sparkles, color: '#E58FD0', href: '/asistente' },
   { label: 'Enfoque', hint: 'Bloque sin distracciones', icon: Timer, color: colors.warning, href: '/enfoque' },
   { label: 'Planificar', hint: 'Ordena tu día', icon: CalendarClock, color: colors.info, href: '/planificar' },
-  { label: 'Capturar', hint: 'Anota una idea', icon: Lightbulb, color: colors.success, href: '/captura' },
+  { label: 'Nota rápida', hint: 'Un pósit con hora', icon: StickyNote, color: colors.success, href: '/captura' },
 ];
 
 /** Accesos directos con icono y color: lo que más se usa, a un toque desde Hoy. */

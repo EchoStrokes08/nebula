@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { localMinutes , expandEvents } from '@/domain/calendar/expand';
+import { atLocal, expandEvents, localMinutes } from '@/domain/calendar/expand';
 import { chooseMessage } from '@/domain/motivation/engine';
 import { applyPrefs, habitCandidates, weeklySummaryCandidate, type Candidate } from '@/domain/notifications/schedule';
 import { useEvents } from '@/features/agenda/hooks';
@@ -8,7 +8,9 @@ import { useHabitSummaries } from '@/features/habits/hooks';
 import { useTimeZone } from '@/features/habits/useToday';
 import { usePreferences } from '@/features/profile/usePreferences';
 import { useTasks } from '@/features/tasks/hooks';
-import { addDays } from '@/lib/dates';
+import { useNotes } from '@/features/notes/api';
+import { minutesOf } from '@/lib/time';
+import { addDays, type DayKey } from '@/lib/dates';
 import { notifications } from '@/platform/notifications';
 
 let synchronizedSignature: string | null = null;
@@ -25,6 +27,8 @@ export function useReminderSync() {
   const { summaries, today } = useHabitSummaries();
   const tasks = useTasks();
   const events = useEvents();
+  // Las notas no bloquean el resto de recordatorios si su consulta falla.
+  const notes = useNotes().data;
 
   useEffect(() => {
     if (!prefs.data || !summaries || !tasks.data || !events.data) return;
@@ -56,6 +60,9 @@ export function useReminderSync() {
           weight: 5,
         };
       }),
+      ...(notes ?? [])
+        .filter((n) => n.remind && !n.done && n.day && n.atTime)
+        .map((n) => ({ id: `nebula-note-${n.id}`, kind: 'tasks' as const, at: atLocal(n.day as DayKey, minutesOf(n.atTime!), tz), title: 'Nota', body: n.text.slice(0, 140), weight: 4 })),
       ...weeklySummaryCandidate(p.weeklyReviewDay ?? null, today, tz),
     ];
 
@@ -83,7 +90,7 @@ export function useReminderSync() {
     return () => {
       cancelled = true;
     };
-  }, [prefs.data, summaries, tasks.data, events.data, today, tz]);
+  }, [prefs.data, summaries, tasks.data, events.data, notes, today, tz]);
 }
 
 /** Tras cambiar permisos o preferencias, fuerza la reprogramación. */

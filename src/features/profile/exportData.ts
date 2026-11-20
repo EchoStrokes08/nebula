@@ -27,6 +27,8 @@ const TABLES = [
   'notifications',
   'journal_entries',
   'integrations',
+  'notes',
+  'motivation_phrases',
 ] as const;
 
 /** Exporta todos tus datos (lo que RLS te permite leer, que es solo lo tuyo) a un JSON. */
