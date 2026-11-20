@@ -9,4 +9,7 @@ const blocked = [/[\\/]\.env\.server(\.[^\\/]*)?$/, /[\\/]supabase[\\/]/];
 const prior = config.resolver.blockList;
 config.resolver.blockList = [...(Array.isArray(prior) ? prior : prior ? [prior] : []), ...blocked];
 
+// Sonidos del modo Enfoque (Opus en .ogg: Android y el Chromium de Electron los reproducen).
+config.resolver.assetExts = [...new Set([...config.resolver.assetExts, 'ogg'])];
+
 module.exports = config;

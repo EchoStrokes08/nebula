@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useKeepAwake } from 'expo-keep-awake';
 import { ArrowLeft, ExternalLink, PictureInPicture2, Pause, Play, SkipForward, Square } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { KeyboardScroll } from '@/components/layout/KeyboardScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,9 +24,10 @@ import { insertLog } from '@/features/habits/api';
 import { useHabitsData } from '@/features/habits/hooks';
 import { useTimeZone } from '@/features/habits/useToday';
 import { useFocus } from '@/features/focus/store';
-import { usePomodoroSettings } from '@/features/focus/settings';
+import { useFocusSound, usePomodoroSettings } from '@/features/focus/settings';
+import { FOCUS_SOUNDS } from '@/features/focus/sounds';
 import { describePomodoro, pomodoroConfig, POMODORO_LIMITS, POMODORO_PRESETS, samePomodoro } from '@/domain/focus/pomodoro';
-import { useTasks } from '@/features/tasks/hooks';
+import { useTaskFocus, useTasks } from '@/features/tasks/hooks';
 import { MotivationLine } from '@/features/motivation/MotivationLine';
 import { dayKeyOf } from '@/lib/dates';
 import { getDesktopBridge } from '@/platform/desktopBridge';
@@ -77,9 +79,17 @@ export default function Enfoque() {
   const pomodoro = usePomodoroSettings((st) => st.settings);
   const setPomodoro = usePomodoroSettings((st) => st.set);
   const [habitId, setHabitId] = useState<string | null>(params.habito ?? null);
-  const [taskId, setTaskId] = useState<string | null>(params.tarea ?? null);
+  const [taskId, setTaskId] = useState<string | null | undefined>(params.tarea ?? undefined);
   const [summary, setSummary] = useState<(SessionSummary & { sessionId?: string }) | null>(null);
   const [radar, setRadar] = useState(false);
+  const sound = useFocusSound((st) => st.sound);
+  const setSound = useFocusSound((st) => st.setSound);
+  const qc = useQueryClient();
+  const summaryFocus = useTaskFocus(summary?.taskId);
+
+  // Si no eliges nada, la sesión se apunta sola a la tarea que tienes programada ahora mismo.
+  const scheduledNow = params.tarea || params.habito ? null : (tasks.data ?? []).find((t) => (t.status === 'todo' || t.status === 'in_progress') && t.scheduledStart && t.scheduledEnd && Date.parse(t.scheduledStart) <= now && now < Date.parse(t.scheduledEnd))?.id ?? null;
+  const linkedTaskId = taskId === undefined ? scheduledNow : taskId;
 
   const save = useAgendaMutation(async (s: SessionSummary) => {
     const sessionId = await agendaApi.saveFocusSession({
@@ -114,7 +124,10 @@ export default function Enfoque() {
   const close = (s: SessionSummary | null) => {
     if (!s) return;
     save.mutate(s, {
-      onSuccess: (sessionId) => setSummary({ ...s, sessionId }),
+      onSuccess: (sessionId) => {
+        setSummary({ ...s, sessionId });
+        void qc.invalidateQueries({ queryKey: ['task_focus'] });
+      },
       onError: () => {
         setSummary(s);
         toast('No se pudo guardar la sesión. Revisa la conexión.');
@@ -168,6 +181,11 @@ export default function Enfoque() {
           {summary.endedEarly ? ' · terminada antes de tiempo' : ''}
         </Text>
         {summary.habitId ? <Text variant="callout" tone="secondary">Registrada en tu hábito con el temporizador.</Text> : null}
+        {task ? (
+          <Text variant="callout" tone="secondary">
+            Apuntada a «{task.title}»{(summaryFocus.data?.seconds ?? 0) >= 60 ? `: llevas ${formatDuration(Math.round(summaryFocus.data!.seconds / 60))} en total${task.estimateMinutes ? ` de ${formatDuration(task.estimateMinutes)} estimados` : ''}` : ''}.
+          </Text>
+        ) : null}
         <View style={styles.actions}>
           {task && task.status !== 'done' ? <Button label={`Completar «${task.title}»`} variant="secondary" onPress={() => router.push({ pathname: '/tarea/[id]', params: { id: task.id } })} /> : null}
           <Button label="¿Algo te interrumpió?" variant="secondary" onPress={() => setRadar(true)} />
@@ -220,7 +238,15 @@ export default function Enfoque() {
           <Button label="Terminar" variant="secondary" icon={<Square size={16} color={colors.text} />} onPress={() => close(focus.stop())} loading={save.isPending} />
         </View>
         <View style={styles.controls}>
+          {FOCUS_SOUNDS.map((o) => (
+            <Chip key={o.value} role="radio" label={o.label} selected={sound === o.value} onToggle={() => setSound(o.value)} />
+          ))}
+        </View>
+        <View style={styles.controls}>
           <Button label="Registrar una distracción" variant="ghost" onPress={() => setRadar(true)} />
+          {desktop && typeof document !== 'undefined' && document.fullscreenEnabled ? (
+            <Button label="Pantalla completa" variant="ghost" onPress={() => void (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => undefined)} />
+          ) : null}
           {desktop ? <Button label="Mini-ventana" variant="ghost" icon={<PictureInPicture2 size={16} color={colors.accentSoft} />} onPress={() => void desktop.focus.openMini()} /> : null}
         </View>
         <DistractionSheet visible={radar} onClose={() => setRadar(false)} sessionId={null} abandoned={false} />
@@ -278,7 +304,7 @@ export default function Enfoque() {
             {openTasks.length ? (
               <Select
                 label="Trabajar en la tarea"
-                value={taskId ?? NONE}
+                value={linkedTaskId ?? NONE}
                 onChange={(v) => setTaskId(v === NONE ? null : v)}
                 options={[{ value: NONE, label: 'Ninguna' }, ...openTasks.map((t) => ({ value: t.id, label: t.title }))]}
               />
@@ -286,7 +312,18 @@ export default function Enfoque() {
           </View>
         </View>
       ) : null}
-      <Button label={`Empezar ${config.focusMinutes} min`} icon={<Play size={18} color={colors.textOnAccent} />} disabled={customInvalid} onPress={() => { void ensureNotificationPermission().catch(() => {}).finally(() => focus.start(config, { habitId, taskId })); }} fullWidth />
+      <View style={styles.section}>
+        <Text variant="overline" tone="accent">SONIDO DE FONDO</Text>
+        <View style={styles.wrap}>
+          {FOCUS_SOUNDS.map((o) => (
+            <Chip key={o.value} role="radio" label={o.label} selected={sound === o.value} onToggle={() => setSound(o.value)} />
+          ))}
+        </View>
+        <Text variant="caption" tone="tertiary">
+          Suena solo durante los bloques de enfoque y se calla en pausas y descansos.{desktop ? ' Si cambias de ventana en pleno bloque, Nebula te lo recuerda con suavidad.' : ''}
+        </Text>
+      </View>
+      <Button label={`Empezar ${config.focusMinutes} min`} icon={<Play size={18} color={colors.textOnAccent} />} disabled={customInvalid} onPress={() => { void ensureNotificationPermission().catch(() => {}).finally(() => focus.start(config, { habitId, taskId: linkedTaskId })); }} fullWidth />
     </KeyboardScroll>
   );
 }

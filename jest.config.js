@@ -18,6 +18,7 @@ module.exports = {
         // La entrada "react-native" de lucide es .mjs; en Jest se usa su build CommonJS.
         '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
         '^lucide-react-native/icons/(.*)$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/icons/$1.js',
+        '\\.ogg$': '<rootDir>/jest.asset-stub.js',
       },
     },
     {

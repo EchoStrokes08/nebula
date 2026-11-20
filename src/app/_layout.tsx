@@ -29,6 +29,7 @@ import { resolveGate } from '@/features/system/gate';
 import { PreviewBadge } from '@/features/system/PreviewBadge';
 import { UpdateBanner } from '@/features/system/UpdateBanner';
 import { WidgetSync } from '@/features/widget/WidgetSync';
+import { FocusAmbience } from '@/features/focus/FocusAmbience';
 import { UndoToast } from '@/components/overlays/UndoToast';
 import { ConfirmHost } from '@/components/overlays/ConfirmHost';
 import { clientEnv } from '@/lib/env';
@@ -87,6 +88,7 @@ export default function RootLayout() {
             <OfflineBanner />
             <UpdateBanner />
             <WidgetSync />
+            <FocusAmbience />
             {gate === 'config' ? (
               <ConfigRequired missing={clientEnv.ok ? [] : clientEnv.missing} />
             ) : (

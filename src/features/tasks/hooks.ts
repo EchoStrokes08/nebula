@@ -44,3 +44,9 @@ export function useToggleTask() {
     onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: taskKeys.all(uid) }), qc.invalidateQueries({ queryKey: ['goals', uid] })]),
   });
 }
+
+/** Enfoque acumulado en la tarea; se refresca al guardar una sesión vinculada. */
+export function useTaskFocus(taskId: string | null | undefined) {
+  const uid = useAuth((s) => s.session?.user.id);
+  return useQuery({ queryKey: ['task_focus', uid, taskId], queryFn: () => api.fetchTaskFocus(taskId!), enabled: !!uid && !!taskId });
+}

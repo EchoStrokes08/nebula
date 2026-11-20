@@ -21,7 +21,7 @@ import { useGoals } from '@/features/goals/hooks';
 import { useToday } from '@/features/habits/useToday';
 import { selectInSplit } from '@/features/system/split';
 import * as api from '@/features/tasks/api';
-import { useTaskMutation, useTasks, useToggleTask } from '@/features/tasks/hooks';
+import { useTaskFocus, useTaskMutation, useTasks, useToggleTask } from '@/features/tasks/hooks';
 import { confirmAction } from '@/lib/confirm';
 import { addDays } from '@/lib/dates';
 import { formatDuration } from '@/lib/time';
@@ -41,6 +41,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
   const [newSub, setNewSub] = useState('');
   const [picker, setPicker] = useState(false);
   const mutate = useTaskMutation(async (fn: () => Promise<unknown>) => fn());
+  const focusTime = useTaskFocus(id);
   const back = () => (embedded ? selectInSplit('task', null) : router.canGoBack() ? router.back() : router.replace('/agenda'));
 
   const all = tasks.data ?? [];
@@ -82,6 +83,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
         <View style={styles.metaWrap}>
           {task.dueDate ? <Meta text={`${formatDay(task.dueDate, today)}${task.dueTime ? ` · ${task.dueTime.slice(0, 5)}` : ''}`} tone={task.dueDate < today && !done ? 'danger' : 'secondary'} /> : null}
           {task.estimateMinutes ? <Meta text={formatDuration(task.estimateMinutes)} /> : null}
+          {(focusTime.data?.seconds ?? 0) >= 60 ? <Meta text={`Enfoque: ${formatDuration(Math.round(focusTime.data!.seconds / 60))} en ${focusTime.data!.sessions} ${focusTime.data!.sessions === 1 ? 'sesión' : 'sesiones'}`} tone="accent" /> : null}
           {task.recurrence ? <Meta text={describeRecurrence(task.recurrence) ?? ''} /> : null}
           {goal ? <Meta text={`Meta: ${goal.title}`} /> : null}
           {task.postponedCount ? <Meta text={`Aplazada ${task.postponedCount} ${task.postponedCount === 1 ? 'vez' : 'veces'}`} tone={task.postponedCount >= 3 ? 'warning' : 'secondary'} /> : null}
@@ -229,7 +231,7 @@ export function TaskDetail({ id, embedded }: { id: string; embedded?: boolean })
   );
 }
 
-function Meta({ text, tone = 'secondary' }: { text: string; tone?: 'secondary' | 'danger' | 'warning' }) {
+function Meta({ text, tone = 'secondary' }: { text: string; tone?: 'secondary' | 'danger' | 'warning' | 'accent' }) {
   return <Text variant="callout" tone={tone}>{text}</Text>;
 }
 

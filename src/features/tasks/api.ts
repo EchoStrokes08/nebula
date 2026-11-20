@@ -170,3 +170,9 @@ export async function fetchTaskHistory(sinceIso: string): Promise<TaskHistoryEnt
   }[];
   return rows.map((r) => ({ taskId: r.task_id, event: r.event, oldDue: r.old_due as DayKey | null, newDue: r.new_due as DayKey | null, at: r.at }));
 }
+
+/** Tiempo de enfoque real dedicado a una tarea (suma de sus sesiones con temporizador). */
+export async function fetchTaskFocus(taskId: string): Promise<{ seconds: number; sessions: number }> {
+  const rows = unwrap(await db().from('focus_sessions').select('focused_seconds').eq('task_id', taskId)) as { focused_seconds: number }[];
+  return { seconds: rows.reduce((a, r) => a + r.focused_seconds, 0), sessions: rows.length };
+}
