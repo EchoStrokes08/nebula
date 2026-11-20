@@ -1,0 +1,7 @@
+{
+  "version": "1.3.7",
+  "notes": "Disponibilidad nueva: dices tu horario y cuándo estás ocupado, y Nebula calcula tu tiempo libre. Más de 100 hábitos sugeridos nuevos, perfil ordenado, buscadores con la lupa dentro y arreglos en la agenda y el mapa de progreso.",
+  "apk": "https://echostrokes08.github.io/nebula/nebula.apk",
+  "windows": "https://echostrokes08.github.io/nebula/Nebula-Setup.exe",
+  "linux": "https://github.com/EchoStrokes08/nebula/releases/latest/download/Nebula-linux-x86_64.AppImage"
+}
