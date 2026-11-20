@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
-import { ChevronDown, ChevronUp, ListChecks, Search } from 'lucide-react-native';
+import { ChevronDown, ChevronUp, ListChecks } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { EmptyState } from '@/components/feedback/EmptyState';
 import { Chip } from '@/components/forms/Chip';
-import { TextField } from '@/components/forms/TextField';
+import { SearchField } from '@/components/forms/SearchField';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, spacing } from '@/design/tokens';
@@ -61,12 +61,7 @@ export function TaskListView() {
 
   return (
     <View style={styles.root}>
-      <View style={styles.searchRow}>
-        <Search size={18} color={colors.textTertiary} />
-        <View style={styles.flex}>
-          <TextField label="Buscar tareas" value={search} onChangeText={setSearch} placeholder="Título, nota o etiqueta" autoCapitalize="none" />
-        </View>
-      </View>
+      <SearchField label="Buscar tareas" value={search} onChangeText={setSearch} placeholder="Buscar por título, nota o etiqueta" autoCapitalize="none" />
       <View style={styles.wrap}>
         <Chip role="radio" label="Pendientes" selected={view === 'pendientes'} onToggle={() => setView('pendientes')} />
         <Chip role="radio" label="Completadas" selected={view === 'completadas'} onToggle={() => setView('completadas')} />
@@ -132,7 +127,6 @@ export function TaskListView() {
 
 const styles = StyleSheet.create({
   root: { gap: spacing[4] },
-  searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
   flex: { flex: 1 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   section: { gap: spacing[2] },

@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { Ban, Check, Search, Swords, UserMinus, UserPlus, X } from 'lucide-react-native';
+import { Ban, Check, Swords, UserMinus, UserPlus, X } from 'lucide-react-native';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
-import { TextField } from '@/components/forms/TextField';
+import { SearchField } from '@/components/forms/SearchField';
 import { Screen } from '@/components/layout/Screen';
 import { useToast } from '@/components/overlays/UndoToast';
 import { Button } from '@/components/primitives/Button';
@@ -31,12 +31,7 @@ export default function Amigos() {
 
   return (
     <Screen back={{ fallback: '/retos' }} title="Amigos">
-      <View style={styles.searchRow}>
-        <Search size={18} color={colors.textTertiary} />
-        <View style={styles.flex}>
-          <TextField label="Buscar por @usuario o nombre" value={q} onChangeText={setQ} autoCapitalize="none" autoCorrect={false} placeholder="@camila" />
-        </View>
-      </View>
+      <SearchField label="Buscar amigos por @usuario o nombre" value={q} onChangeText={setQ} autoCapitalize="none" autoCorrect={false} placeholder="Busca por @usuario o nombre" />
       {term.length >= 2 ? (
         <View style={styles.card}>
           {search.isLoading ? <Text tone="secondary">Buscando…</Text> : null}
@@ -123,7 +118,6 @@ export default function Amigos() {
 }
 
 const styles = StyleSheet.create({
-  searchRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing[2] },
   flex: { flex: 1 },
   card: { gap: spacing[3], padding: spacing[5], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
