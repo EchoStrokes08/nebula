@@ -15,3 +15,7 @@ import_map = "./functions/deno.json"
 [functions.google-calendar]
 verify_jwt = false
 import_map = "./functions/deno.json"
+
+[functions.push-dispatch]
+verify_jwt = false
+import_map = "./functions/deno.json"
