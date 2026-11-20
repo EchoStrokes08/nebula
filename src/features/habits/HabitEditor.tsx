@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
 import { TextField } from '@/components/forms/TextField';
-import { TimeSlider } from '@/components/forms/TimeSlider';
+import { TimePicker } from '@/components/forms/TimePicker';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing, userColors, type UserColor } from '@/design/tokens';
@@ -265,7 +265,8 @@ export function HabitEditor({ habit }: HabitEditorProps) {
             <Chip key={t || 'none'} role="radio" label={t || 'Sin recordatorio'} selected={(normalizeTime(reminder) ?? '') === t} onToggle={() => setReminder(t)} />
           ))}
         </View>
-        {reminder.trim() ? <TimeSlider label="Hora del recordatorio" value={reminder} onChange={setReminder} step={5} /> : null}
+        {/* Siempre se puede elegir cualquier hora del día, no solo las sugeridas. */}
+        <TimePicker label="Hora personalizada" value={reminder} onChange={setReminder} step={5} placeholder="Elegir cualquier hora" />
         <Text variant="caption" tone="secondary">Solo los días programados y si aún no lo has hecho. Respeta tus horas de silencio.</Text>
       </Section>
 
@@ -345,9 +346,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing[5], gap: spacing[6] },
   wide: { maxWidth: 640, width: '100%', alignSelf: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   // Elegir sugerencia: índice de categorías + cuadrícula, necesita más ancho que el formulario.
   wideChoose: { maxWidth: 1080 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   section: { gap: spacing[3] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   row: { flexDirection: 'row', gap: spacing[3] },

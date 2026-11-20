@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Chip } from '@/components/forms/Chip';
 import { DateField } from '@/components/forms/DateField';
-import { TimeSlider } from '@/components/forms/TimeSlider';
+import { TimePicker } from '@/components/forms/TimePicker';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -145,7 +145,7 @@ export function TaskEditor({ task, presetGoalId }: { task?: Task; presetGoalId?:
               <Chip role="radio" label="Sin hora" selected={!dueTime.trim()} onToggle={() => setDueTime('')} />
               <Chip role="radio" label="A una hora" selected={!!dueTime.trim()} onToggle={() => { if (!dueTime.trim()) setDueTime('18:00'); }} />
             </View>
-            {dueTime.trim() ? <TimeSlider label="Hora límite" value={dueTime} onChange={setDueTime} error={errors.dueTime} /> : null}
+            {dueTime.trim() ? <TimePicker label="Hora límite" value={dueTime} onChange={setDueTime} error={errors.dueTime} /> : null}
           </>
         ) : null}
         <Text variant="caption" tone="secondary">Repetir</Text>

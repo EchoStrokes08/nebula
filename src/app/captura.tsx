@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Chip } from '@/components/forms/Chip';
 import { DateField } from '@/components/forms/DateField';
 import { Switch } from '@/components/forms/Switch';
-import { TimeSlider } from '@/components/forms/TimeSlider';
+import { TimePicker } from '@/components/forms/TimePicker';
 import { Screen } from '@/components/layout/Screen';
 import { useToast } from '@/components/overlays/UndoToast';
 import { Button } from '@/components/primitives/Button';
@@ -112,7 +112,7 @@ function NoteForm({ note }: { note?: Note }) {
             <Chip role="radio" label="Sin hora" selected={!time} onToggle={() => pickTime(false)} />
             <Chip role="radio" label="A una hora" selected={!!time} onToggle={() => pickTime(true)} />
           </View>
-          {time ? <TimeSlider label="Hora" value={time} onChange={setTime} step={5} /> : null}
+          {time ? <TimePicker label="Hora" value={time} onChange={setTime} step={5} /> : null}
           {time ? <Switch label="Recordarme a esa hora" description="Te llega un aviso en este dispositivo." value={remind} onChange={(v) => void toggleRemind(v)} /> : null}
         </>
       ) : <Text variant="caption" tone="tertiary">Sin día, la nota se queda pegada en Hoy hasta que la marques como hecha.</Text>}

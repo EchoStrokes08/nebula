@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, useWindow
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/primitives/Text';
-import { colors, radius, spacing } from '@/design/tokens';
+import { colors, fontFamily, radius, spacing } from '@/design/tokens';
 
 /** Hoja inferior en Android / modal centrado en escritorio (DISENO_UI_UX §3). `Esc` cierra en escritorio. */
 export function Sheet({ visible, onClose, title, children }: { visible: boolean; onClose(): void; title: string; children: ReactNode }) {
@@ -20,7 +20,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
             accessibilityViewIsModal
           >
             {!centered ? <View style={styles.grabber} /> : null}
-            <Text variant="title3" accessibilityRole="header">
+            <Text accessibilityRole="header" style={styles.title}>
               {title}
             </Text>
             {children}
@@ -33,6 +33,7 @@ export function Sheet({ visible, onClose, title, children }: { visible: boolean;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  title: { fontFamily: fontFamily.serif, fontSize: 28, lineHeight: 32, color: colors.text },
   backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.overlay },
   backdropCentered: { justifyContent: 'center', alignItems: 'center' },
   sheet: {

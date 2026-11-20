@@ -1,6 +1,5 @@
 import { type ComponentRef, useEffect, useRef, useState } from 'react';
-import { Minus, Plus } from 'lucide-react-native';
-import { type GestureResponderEvent, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { type GestureResponderEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/primitives/Text';
 import { platformHaptics } from '@/platform/haptics';
@@ -128,33 +127,6 @@ function Track({ thumbs, step, min, max, disabled, fill }: { thumbs: Thumb[]; st
           {TICKS.map((h) => <Text key={h} variant="caption" tone="tertiary" tabular>{String(h).padStart(2, '0')}</Text>)}
         </View>
       ) : null}
-    </View>
-  );
-}
-
-/** Una hora del día con un deslizador (por defecto, cada 15 minutos). */
-export function TimeSlider({ label, value, onChange, step = 15, min = 0, max = DAY_MINUTES - step, disabled, hint, error }: {
-  label: string; value: string; onChange(v: string): void; step?: number; min?: number; max?: number; disabled?: boolean; hint?: string; error?: string;
-}) {
-  const v = minutesFrom(value, min);
-  const nudge = (delta: number) => {
-    const next = snapMinutes(v + delta, step, min, max);
-    if (next !== v) { platformHaptics.tap(); onChange(timeOf(next)); }
-  };
-  return (
-    <View style={styles.box}>
-      <View style={styles.head}>
-        <Text variant="caption" tone="secondary" style={styles.flex}>{label}</Text>
-        <Pressable onPress={() => nudge(-step)} disabled={disabled || v <= min} accessibilityRole="button" accessibilityLabel={`${label}: ${step} minutos antes`} hitSlop={6} style={[styles.nudge, (disabled || v <= min) && styles.disabled]}>
-          <Minus size={16} color={colors.text} />
-        </Pressable>
-        <Text variant="title3" tabular style={styles.value}>{label24(v)}</Text>
-        <Pressable onPress={() => nudge(step)} disabled={disabled || v >= max} accessibilityRole="button" accessibilityLabel={`${label}: ${step} minutos después`} hitSlop={6} style={[styles.nudge, (disabled || v >= max) && styles.disabled]}>
-          <Plus size={16} color={colors.text} />
-        </Pressable>
-      </View>
-      <Track thumbs={[{ value: v, min, max, label, onChange: (m) => onChange(timeOf(m)) }]} step={step} min={0} max={DAY_MINUTES} fill={[0, v]} disabled={disabled} />
-      {error ? <Text variant="caption" tone="danger">{error}</Text> : hint ? <Text variant="caption" tone="secondary">{hint}</Text> : null}
     </View>
   );
 }

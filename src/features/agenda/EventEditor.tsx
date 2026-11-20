@@ -7,7 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Chip } from '@/components/forms/Chip';
 import { DateField } from '@/components/forms/DateField';
 import { TextField } from '@/components/forms/TextField';
-import { DAY_MINUTES, TimeSlider } from '@/components/forms/TimeSlider';
+import { TimePicker } from '@/components/forms/TimePicker';
+import { DAY_MINUTES } from '@/components/forms/TimeSlider';
 import { Sheet } from '@/components/overlays/Sheet';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
@@ -169,8 +170,8 @@ export function EventEditor({ event, presetDay }: { event?: EventRecord; presetD
       </View>
       {!allDay ? (
         <>
-          <TimeSlider label="Empieza" value={start} step={5} disabled={readOnly} error={errors.start} onChange={moveStart} />
-          <TimeSlider label="Termina" value={end} step={5} min={5} max={DAY_MINUTES - 1} disabled={readOnly} error={errors.end} hint={endHint} onChange={setEnd} />
+          <TimePicker label="Empieza" value={start} step={5} disabled={readOnly} error={errors.start} onChange={moveStart} />
+          <TimePicker label="Termina" value={end} step={5} min={5} max={DAY_MINUTES - 1} disabled={readOnly} error={errors.end} hint={endHint} onChange={setEnd} />
         </>
       ) : null}
 
