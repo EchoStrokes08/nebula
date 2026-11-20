@@ -53,8 +53,7 @@
         "expo-image-picker",
         {
           "photosPermission": "Nebula usa tus fotos solo para que elijas tu imagen de perfil.",
-          "cameraPermission": false,
-          "microphonePermission": false
+          "cameraPermission": false
         }
       ],
       [
