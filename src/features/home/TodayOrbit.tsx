@@ -1,0 +1,132 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, type Href } from 'expo-router';
+import { useEffect } from 'react';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+
+import { Text } from '@/components/primitives/Text';
+import { fontFamily, motion, radius, spacing } from '@/design/tokens';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
+import { platformHaptics } from '@/platform/haptics';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
+
+/** Anillo de progreso con brillo neón: capas anchas y translúcidas bajo el trazo principal. */
+function GlowRing({ progress, size = 128, stroke = 10 }: { progress: number; size?: number; stroke?: number }) {
+  const p = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
+  const pad = 12; // margen para que el brillo no se corte
+  const r = (size - stroke) / 2 - pad;
+  const c = 2 * Math.PI * r;
+  const reduced = useReducedMotion();
+  const shown = useSharedValue(reduced ? p : 0);
+  useEffect(() => {
+    shown.value = reduced ? p : withTiming(p, { duration: motion.slow * 2 });
+  }, [p, reduced, shown]);
+  const arc = useAnimatedProps(() => ({ strokeDashoffset: c * (1 - shown.value) }));
+  const mid = size / 2;
+  const common = { cx: mid, cy: mid, r, fill: 'none', strokeLinecap: 'round' as const, strokeDasharray: `${c} ${c}`, transform: `rotate(-90 ${mid} ${mid})` };
+  return (
+    <Svg width={size} height={size}>
+      <Defs>
+        <SvgGradient id="orbitArc" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor="#7DF3FF" />
+          <Stop offset="0.55" stopColor="#B99BFF" />
+          <Stop offset="1" stopColor="#FF8AD8" />
+        </SvgGradient>
+      </Defs>
+      <Circle cx={mid} cy={mid} r={r} stroke="rgba(255, 255, 255, 0.14)" strokeWidth={stroke} fill="none" />
+      {p > 0 ? (
+        <>
+          <AnimatedCircle {...common} stroke="#C9B6FF" strokeOpacity={0.12} strokeWidth={stroke + 16} animatedProps={arc} />
+          <AnimatedCircle {...common} stroke="#C9B6FF" strokeOpacity={0.22} strokeWidth={stroke + 8} animatedProps={arc} />
+          <AnimatedCircle {...common} stroke="url(#orbitArc)" strokeWidth={stroke} animatedProps={arc} />
+        </>
+      ) : null}
+    </Svg>
+  );
+}
+
+export interface OrbitStat {
+  label: string;
+  value: string;
+  href?: Href;
+}
+
+/**
+ * Hoy · «Tu órbita de hoy»: el centro visual de la pantalla. Degradado cósmico, anillo luminoso
+ * con el porcentaje del día y cifras grandes separadas por divisores finos (cada una abre su sección).
+ */
+export function TodayOrbit({ progress, headline, caption, stats }: { progress: number; headline: string; caption?: string; stats: OrbitStat[] }) {
+  const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
+  return (
+    <View style={styles.shadow}>
+      <LinearGradient colors={['#4A22B8', '#8B37C9', '#2C5BD6']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.root} accessibilityRole="summary">
+        <View style={[styles.orb, styles.orbPink]} pointerEvents="none" />
+        <View style={[styles.orb, styles.orbCyan]} pointerEvents="none" />
+        <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 0.6 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
+        {STARS.map((s, i) => <View key={i} pointerEvents="none" style={[styles.star, { left: `${s[0]}%`, top: `${s[1]}%`, width: s[2], height: s[2], borderRadius: s[2] }]} />)}
+
+        <View style={styles.top}>
+          <View style={styles.ring} accessible accessibilityRole="progressbar" accessibilityLabel={`Progreso del día: ${pct} %`} accessibilityValue={{ min: 0, max: 100, now: pct }}>
+            <GlowRing progress={progress} />
+            <View style={styles.ringCenter} pointerEvents="none">
+              <Text style={styles.pct} tabular>{pct}<Text style={styles.pctSign}>%</Text></Text>
+              <Text variant="caption" style={styles.dim}>del día</Text>
+            </View>
+          </View>
+          <View style={styles.copy}>
+            <Text variant="overline" style={styles.eyebrow}>TU ÓRBITA DE HOY</Text>
+            <Text variant="title2" style={styles.headline}>{headline}</Text>
+            {caption ? <Text variant="callout" style={styles.dim}>{caption}</Text> : null}
+          </View>
+        </View>
+
+        <View style={styles.stats}>
+          {stats.map((s, i) => (
+            <View key={s.label} style={styles.statWrap}>
+              {i > 0 ? <View style={styles.divider} /> : null}
+              <Pressable
+                disabled={!s.href}
+                onPress={() => { if (s.href) { platformHaptics.tap(); router.push(s.href); } }}
+                accessibilityRole={s.href ? 'button' : undefined}
+                accessibilityLabel={`${s.label}: ${s.value}`}
+                style={({ pressed }) => [styles.stat, pressed && styles.pressed]}
+              >
+                <Text style={styles.statValue} tabular numberOfLines={1} adjustsFontSizeToFit>{s.value}</Text>
+                <Text variant="caption" style={styles.dim}>{s.label}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      </LinearGradient>
+    </View>
+  );
+}
+
+/** Estrellitas fijas sobre el degradado: [x %, y %, tamaño]. */
+const STARS: [number, number, number][] = [[8, 12, 2], [22, 78, 1.5], [46, 8, 1.5], [63, 30, 2], [88, 18, 2.5], [93, 64, 1.5], [55, 88, 2], [74, 52, 1.5]];
+
+const styles = StyleSheet.create({
+  shadow: { borderRadius: radius.xl + 6, boxShadow: '0 0 34px rgba(139, 92, 246, 0.45), 0 18px 40px rgba(0, 0, 0, 0.5)' } as ViewStyle,
+  root: { gap: spacing[5], padding: spacing[5], borderRadius: radius.xl + 6, borderWidth: 1, borderColor: 'rgba(230, 215, 255, 0.35)', overflow: 'hidden' },
+  orb: { position: 'absolute', borderRadius: 999 },
+  orbPink: { top: -70, right: -50, width: 200, height: 200, backgroundColor: 'rgba(255, 138, 216, 0.32)' },
+  orbCyan: { bottom: -90, left: -60, width: 220, height: 220, backgroundColor: 'rgba(125, 243, 255, 0.18)' },
+  star: { position: 'absolute', backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+  top: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  ring: { width: 128, height: 128, marginVertical: -spacing[2], marginLeft: -spacing[2] },
+  ringCenter: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
+  pct: { fontFamily: fontFamily.displayBold, fontSize: 30, lineHeight: 36, letterSpacing: -1, color: '#FFFFFF', textShadowColor: 'rgba(201, 182, 255, 0.9)', textShadowRadius: 14 },
+  pctSign: { fontFamily: fontFamily.displayBold, fontSize: 16, color: 'rgba(255, 255, 255, 0.8)' },
+  copy: { flex: 1, gap: spacing[1] },
+  eyebrow: { color: '#E9DDFF', letterSpacing: 1.2 },
+  headline: { color: '#FFFFFF' },
+  dim: { color: 'rgba(245, 238, 255, 0.78)' },
+  stats: { flexDirection: 'row', alignItems: 'stretch', paddingVertical: spacing[3], borderRadius: radius.lg, backgroundColor: 'rgba(10, 6, 24, 0.35)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
+  statWrap: { flex: 1, flexDirection: 'row' },
+  divider: { width: 1, marginVertical: spacing[1], backgroundColor: 'rgba(255, 255, 255, 0.16)' },
+  stat: { flex: 1, alignItems: 'center', gap: 2, paddingHorizontal: spacing[2] },
+  statValue: { fontFamily: fontFamily.displayBold, fontSize: 30, lineHeight: 38, letterSpacing: -1, color: '#FFFFFF', textShadowColor: 'rgba(0, 0, 0, 0.25)', textShadowRadius: 6 },
+  pressed: { opacity: 0.7 },
+});

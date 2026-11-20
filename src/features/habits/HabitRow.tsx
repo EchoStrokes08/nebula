@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useContextMenu } from '@/components/overlays/ContextMenu';
 import { useToast } from '@/components/overlays/UndoToast';
@@ -77,7 +77,7 @@ export function HabitRow({ s, today }: { s: HabitSummary; today: import('@/lib/d
     habit.kind === 'binary' ? (done ? `Desmarcar ${habit.name}` : `Marcar ${habit.name} como hecho`) : `Registrar ${habit.name}`;
 
   return (
-    <View style={[styles.row, selected && styles.rowSelected]}>
+    <View style={[styles.row, done && !selected && { borderColor: `${color}80`, backgroundColor: `${color}14`, boxShadow: `0 0 18px ${color}40, 0 6px 16px rgba(0, 0, 0, 0.35)` } as ViewStyle, selected && styles.rowSelected]}>
       <Pressable
         style={(st: { pressed: boolean; hovered?: boolean }) => [styles.main, (st.pressed || st.hovered) && styles.mainHover]}
         onPress={open}
@@ -93,7 +93,7 @@ export function HabitRow({ s, today }: { s: HabitSummary; today: import('@/lib/d
           <Text variant="bodyStrong" numberOfLines={1}>
             {habit.name}
           </Text>
-          <Text variant="caption" tone={paused || notToday ? 'tertiary' : 'secondary'} numberOfLines={1}>
+          <Text variant="caption" tone={paused || notToday ? 'tertiary' : 'secondary'} numberOfLines={2}>
             {paused
               ? 'En pausa'
               : notToday
@@ -145,8 +145,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[2],
     paddingRight: spacing[3],
+    paddingVertical: 2,
     borderRadius: radius.lg,
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(18, 16, 30, 0.8)',
     borderWidth: 1,
     borderColor: colors.border,
   },

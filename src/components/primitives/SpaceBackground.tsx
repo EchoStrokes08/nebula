@@ -22,6 +22,8 @@ import { useAppearance } from '@/features/appearance/store';
 const FIELD = generateStars(150, 11);
 const SPARKLES = generateStars(16, 5);
 const SOURCE_DUST = [palette.violet400, '#E58FD0', palette.cyan400];
+// Difuminado sutil del cielo (solo web: en Android el desenfoque de capas animadas cuesta batería).
+const softFocus = Platform.OS === 'web' ? ({ filter: 'blur(1.5px)' } as unknown as ViewStyle) : null;
 const webLayer = Platform.OS === 'web' ? ({ willChange: 'transform, opacity' } as unknown as ViewStyle) : null;
 
 /** Destello de cuatro puntas centrado en (x, y). */
@@ -210,7 +212,7 @@ export const SpaceBackground = memo(function SpaceBackground() {
 
   return (
     <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.sky[2], overflow: 'hidden' }]} pointerEvents="none" importantForAccessibility="no-hide-descendants">
-      <Animated.View key={theme.id} entering={reduced ? undefined : FadeIn.duration(1600)} style={StyleSheet.absoluteFill}>
+      <Animated.View key={theme.id} entering={reduced ? undefined : FadeIn.duration(1600)} style={[StyleSheet.absoluteFill, softFocus]}>
         <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
           <Defs>
             <LinearGradient id="sky" x1="0" y1="0" x2="0.3" y2="1">
@@ -242,8 +244,17 @@ export const SpaceBackground = memo(function SpaceBackground() {
           <ShootingStar width={width} height={height} delay={23_000} y={0.4} />
         </>
       ) : null}
-      {/* Velo: mantiene el contenido legible sobre la galaxia. */}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, opacity: wide ? 0.2 : 0.14 }]} />
+      {/* Velo y viñeta: oscurecen los bordes para que el contenido resalte sobre la galaxia. */}
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg, opacity: wide ? 0.3 : 0.26 }]} />
+      <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
+        <Defs>
+          <RadialGradient id="vignette" cx="50%" cy="42%" rx="75%" ry="68%">
+            <Stop offset="0.45" stopColor="#05030C" stopOpacity={0} />
+            <Stop offset="1" stopColor="#05030C" stopOpacity={0.78} />
+          </RadialGradient>
+        </Defs>
+        <Rect width={width} height={height} fill="url(#vignette)" />
+      </Svg>
     </View>
   );
 });

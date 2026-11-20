@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { Quote } from 'lucide-react-native';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
@@ -14,20 +15,25 @@ export function TodayPhrase({ moment }: { moment: MotivationContext['moment'] })
   const featured = useFeaturedPhrase();
   if (!featured) return <MotivationLine moment={moment} />;
   return (
-    <Pressable onPress={() => router.push('/motivacion')} accessibilityRole="button" accessibilityHint="Abre Motivación para cambiar la frase" style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-      <View style={styles.head}>
-        <Quote size={16} color={colors.accentSoft} />
-        <Text variant="overline" tone="accent">TU FRASE</Text>
+    <Pressable onPress={() => router.push('/motivacion')} accessibilityRole="button" accessibilityHint="Abre Motivación para cambiar la frase" style={({ pressed }) => [styles.root, pressed && styles.pressed]}>
+      <LinearGradient colors={['#C9B6FF', '#E58FD0', '#7DF3FF']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={styles.bar} />
+      <View style={styles.body}>
+        <View style={styles.head}>
+          <Quote size={14} color={colors.accentSoft} />
+          <Text variant="overline" tone="accent">TU FRASE</Text>
+        </View>
+        <Text variant="bodyStrong" style={styles.text}>{featured.text}</Text>
+        {featured.author ? <Text variant="caption" tone="tertiary">— {featured.author}</Text> : null}
       </View>
-      <Text variant="title3" style={styles.text}>{featured.text}</Text>
-      {featured.author ? <Text variant="caption" tone="secondary">— {featured.author}</Text> : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { gap: spacing[2], padding: spacing[5], borderRadius: radius.xl, backgroundColor: 'rgba(128, 85, 232, 0.14)', borderWidth: 1, borderColor: colors.borderStrong },
-  pressed: { opacity: 0.85 },
+  root: { flexDirection: 'row', gap: spacing[4], paddingVertical: spacing[1] },
+  bar: { width: 3, borderRadius: radius.pill, boxShadow: '0 0 12px rgba(229, 143, 208, 0.8)' } as ViewStyle,
+  body: { flex: 1, gap: spacing[1] },
+  pressed: { opacity: 0.7 },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  text: { color: colors.text },
+  text: { color: colors.text, fontSize: 17, lineHeight: 25 },
 });

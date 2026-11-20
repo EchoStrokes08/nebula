@@ -1,9 +1,11 @@
 import { router } from 'expo-router';
-import { CheckSquare, Flame, KeyRound, Plus, Sun } from 'lucide-react-native';
-import { HeroCard } from '@/components/layout/HeroCard';
+import { CheckSquare, ChevronRight, Flame, KeyRound, RotateCcw, Sun } from 'lucide-react-native';
 import { SectionHeader } from '@/components/layout/SectionHeader';
-import { ProgressRing } from '@/components/progress/ProgressRing';
 import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { GlassCard } from '@/components/primitives/GlassCard';
+import { TodayOrbit } from '@/features/home/TodayOrbit';
+import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
 import { TodayPhrase } from '@/features/motivation/TodayPhrase';
 import { NotificationPrompt } from '@/features/notifications/NotificationPrompt';
@@ -12,7 +14,7 @@ import { EmptyState } from '@/components/feedback/EmptyState';
 import { Screen } from '@/components/layout/Screen';
 import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
-import { colors, radius, spacing } from '@/design/tokens';
+import { colors, fontFamily, radius, spacing } from '@/design/tokens';
 import { formatNumber, unitLabel } from '@/features/habits/format';
 import { HabitList, isForToday } from '@/features/habits/HabitList';
 import { useHabitSummaries } from '@/features/habits/hooks';
@@ -54,42 +56,50 @@ export default function HoyScreen() {
   const key = [...dag.ready].map((id) => ({ id, n: dag.unlocks.get(id) ?? 0 })).sort((a, b) => b.n - a.n)[0];
   const keyTask = key && key.n > 0 ? allTasks.find((t) => t.id === key.id) : undefined;
 
+  const best = Math.max(0, ...forToday.map((s) => s.streak.current));
+  const reduced = useReducedMotion();
+  // Entrada escalonada de los bloques (sin movimiento si el sistema lo pide).
+  const enter = (i: number) => (reduced ? undefined : FadeInDown.duration(420).delay(60 + i * 70));
+
   return (
-    <Screen
-      title="Hoy"
-      subtitle={`${hello}. Lo importante de tu día, de un vistazo.`}
-      overline={dayLabel(today)}
-      trailing={<Button label="Hábito" variant="secondary" icon={<Plus size={18} color={colors.text} />} onPress={() => router.push('/habito/nuevo')} />}
-    >
+    <Screen title={hello} overline={dayLabel(today)}>
       {forToday.length || todayTasks.length ? (
-        <HeroCard
-          eyebrow="Tu órbita de hoy"
-          headline={pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : `Te quedan ${pending.length} hábitos`}
-          visual={
-            <ProgressRing progress={forToday.length ? done / forToday.length : 0} size={72} stroke={7} label={`${done} de ${forToday.length} hábitos`}>
-              <Text variant="title3" tabular>{forToday.length ? Math.round((done / forToday.length) * 100) : 0}%</Text>
-            </ProgressRing>
-          }
-          stats={[
-            { label: 'Hábitos hechos', value: `${done}/${forToday.length}` },
-            { label: 'Tareas para hoy', value: String(todayTasks.length) },
-          ]}
-        />
+        <Animated.View entering={enter(0)}>
+          <TodayOrbit
+            progress={forToday.length ? done / forToday.length : 0}
+            headline={pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : forToday.length ? `Te quedan ${pending.length} hábitos` : 'Sin hábitos para hoy'}
+            caption={todayTasks.length ? `y ${todayTasks.length} ${todayTasks.length === 1 ? 'tarea' : 'tareas'} en tu agenda` : 'Lo importante de tu día, de un vistazo.'}
+            stats={[
+              { label: 'Hábitos', value: `${done}/${forToday.length}`, href: '/habitos' },
+              { label: 'Tareas hoy', value: String(todayTasks.length), href: '/agenda' },
+              { label: best === 1 ? 'Día de racha' : 'Días de racha', value: String(best) },
+            ]}
+          />
+        </Animated.View>
       ) : null}
       <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
       <NotificationPrompt />
       <QuickActionsRow />
       <NotesBoard today={today} />
       <GoalsShortcut />
-      {recovery.map((s) => (
-        <View key={s.habit.id} style={styles.recovery} accessibilityRole="summary">
-          <Text variant="overline" tone="accent">RETOMA HOY</Text>
-          <Text variant="bodyStrong">
-            Llevas {s.recovery!.missedInARow} días sin {s.habit.name.toLowerCase()}. Hoy puedes reiniciar con{' '}
-            {s.habit.kind === 'binary' ? 'una sola vez' : `${formatNumber(s.recovery!.suggestedTarget)} ${unitLabel(s.habit.kind, s.habit.unit)}`}.
-          </Text>
-        </View>
-      ))}
+      {recovery.length ? (
+        <GlassCard edge="rgba(169, 135, 255, 0.55)" style={styles.recovery} accessibilityRole="summary">
+          <View style={styles.recoveryHead}>
+            <RotateCcw size={14} color={colors.accentSoft} />
+            <Text variant="overline" tone="accent">RETOMA HOY</Text>
+          </View>
+          {recovery.map((s, i) => (
+            <View key={s.habit.id} style={[styles.recoveryItem, i > 0 && styles.hairline]}>
+              <Text variant="callout">
+                Llevas {s.recovery!.missedInARow} días sin {s.habit.name.toLowerCase()}. Hoy puedes reiniciar con{' '}
+                <Text variant="callout" style={styles.strong}>
+                  {s.habit.kind === 'binary' ? 'una sola vez' : `${formatNumber(s.recovery!.suggestedTarget)} ${unitLabel(s.habit.kind, s.habit.unit)}`}
+                </Text>.
+              </Text>
+            </View>
+          ))}
+        </GlassCard>
+      ) : null}
 
       {todayTasks.length ? (
         <View style={styles.section}>
@@ -101,10 +111,18 @@ export default function HoyScreen() {
       ) : null}
 
       {keyTask ? (
-        <View style={styles.keyTask} accessibilityRole="summary">
+        <View style={styles.section}>
           <SectionHeader icon={KeyRound} title="Lo que más desbloquea" color={colors.success} />
-          <Text variant="bodyStrong">{keyTask.title}</Text>
-          <Text variant="callout" tone="secondary">Terminarla libera {key!.n} {key!.n === 1 ? 'tarea' : 'tareas'} que dependen de ella.</Text>
+          <GlassCard onPress={() => router.push({ pathname: '/tarea/[id]', params: { id: keyTask.id } })} accessibilityLabel={`${keyTask.title}. Libera ${key!.n} tareas`} style={styles.keyTask} radius={radius.lg}>
+            <View style={styles.keyDot} />
+            <View style={styles.flex}>
+              <Text variant="bodyStrong">{keyTask.title}</Text>
+              <Text variant="callout" tone="secondary">
+                Terminarla libera {key!.n} {key!.n === 1 ? 'tarea que depende' : 'tareas que dependen'} de ella.
+              </Text>
+            </View>
+            <ChevronRight size={18} color={colors.textTertiary} />
+          </GlassCard>
         </View>
       ) : null}
 
@@ -131,6 +149,12 @@ export default function HoyScreen() {
 
 const styles = StyleSheet.create({
   section: { gap: spacing[3] },
-  keyTask: { gap: spacing[2], padding: spacing[5], borderRadius: radius.xl, backgroundColor: colors.card, borderWidth: 1, borderColor: 'rgba(111, 214, 160, 0.35)' },
-  recovery: { gap: spacing[2], padding: spacing[5], borderRadius: radius.xl, backgroundColor: 'rgba(128, 85, 232, 0.24)', borderWidth: 1, borderColor: colors.accent },
+  flex: { flex: 1, gap: spacing[1] },
+  keyTask: { flexDirection: 'row', alignItems: 'center', gap: spacing[4], padding: spacing[4], paddingVertical: spacing[5] },
+  keyDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success, boxShadow: '0 0 10px rgba(111, 214, 160, 0.9)' } as object,
+  recovery: { paddingHorizontal: spacing[5], paddingVertical: spacing[4] },
+  recoveryHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[1] },
+  recoveryItem: { paddingVertical: spacing[3] },
+  hairline: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(199, 169, 255, 0.2)' },
+  strong: { color: colors.accentSoft, fontFamily: fontFamily.semibold },
 });
