@@ -6,7 +6,7 @@ const globals = require('globals');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['.desktop-app/**', 'dist/*', 'release/*', 'expo-env.d.ts', '.expo/*', '.e2e/**', '.pages-dist/**', 'test-results/**', 'playwright-report/**'],
+    ignores: ['android/', 'ios/', 'modules/*/android/build/', '.desktop-app/**', 'dist/*', 'release/*', 'expo-env.d.ts', '.expo/*', '.e2e/**', '.pages-dist/**', 'test-results/**', 'playwright-report/**'],
   },
   {
     // Proceso principal de Electron y configuración: entorno Node.
