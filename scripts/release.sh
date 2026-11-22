@@ -37,21 +37,29 @@ CODE=$(node -e '
 ' "$VERSION")
 echo "version $VERSION · versionCode $CODE"
 
-step "2/7 Comprobaciones"
-npx tsc --noEmit
-npx eslint .
-npx jest --selectProjects app --silent
+# Pasos 2-4 en paralelo: son independientes y así la release tarda lo que el más lento. Las
+# comprobaciones y el APK escriben en registros propios; si algo falla se muestra su final y no se
+# publica nada (el commit y la etiqueta van después).
+LOGS=$(mktemp -d)
+JOBS=()
+bg() { local name=$1; shift; "$@" >"$LOGS/$name.log" 2>&1 & JOBS+=("$name:$!"); }
+build_apk() {
+  set -euo pipefail
+  export JAVA_HOME="${JAVA_HOME:-$HOME/Android/jdk}"
+  export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
+  npx expo prebuild --platform android --no-install
+  (cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain -q)
+  mkdir -p release
+  cp android/app/build/outputs/apk/release/app-release.apk release/nebula.apk
+  # Rotación de clave: las instalaciones firmadas con la clave antigua (≤1.2.3) se actualizan encima.
+  bash scripts/sign-apk-rotation.sh release/nebula.apk
+}
 
-step "3/7 APK"
-export JAVA_HOME="${JAVA_HOME:-$HOME/Android/jdk}"
-export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
-npx expo prebuild --platform android --no-install
-(cd android && ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --console=plain -q)
-mkdir -p release
-cp android/app/build/outputs/apk/release/app-release.apk release/nebula.apk
-# Rotación de clave: las instalaciones firmadas con la clave antigua (≤1.2.3) se actualizan encima.
-bash scripts/sign-apk-rotation.sh release/nebula.apk
-ls -lh release/nebula.apk
+step "2-3/7 Comprobaciones y APK (en segundo plano)"
+bg tipos npx tsc --noEmit
+bg lint npx eslint .
+bg pruebas npx jest --selectProjects app --silent
+bg apk build_apk
 
 step "4/7 AppImage de Linux e instalador de Windows"
 npm run dist:linux
@@ -61,6 +69,15 @@ ls -lh release/Nebula-linux-x86_64.AppImage
 if [ -x "$HOME/.local/opt/nebula/Nebula.AppImage" ]; then bash scripts/install-linux.sh --sin-compilar; fi
 # Reutiliza la web de escritorio recién preparada; el paquete solo lo acepta el instalador de esta versión.
 bash scripts/build-windows.sh
+
+step "Esperando comprobaciones y APK"
+for job in "${JOBS[@]}"; do
+  name=${job%%:*}; pid=${job##*:}
+  if wait "$pid"; then echo "✓ $name"; else
+    printf '\033[1;31m✗ Falló: %s\033[0m\n' "$name"; tail -40 "$LOGS/$name.log"; exit 1
+  fi
+done
+ls -lh release/nebula.apk
 
 step "5/7 Commit y etiqueta"
 git add app.json

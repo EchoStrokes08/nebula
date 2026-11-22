@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 export JAVA_HOME="${JAVA_HOME:-$HOME/Android/jdk}"
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Android/Sdk}"
 npx expo prebuild --platform android --no-install
-(cd android && ./gradlew assembleRelease --console=plain)
+# Solo arm64 (todos los móviles actuales); NEBULA_ARCHS=armeabi-v7a,arm64-v8a,x86,x86_64 para el resto.
+(cd android && ./gradlew assembleRelease -PreactNativeArchitectures="${NEBULA_ARCHS:-arm64-v8a}" --console=plain)
 mkdir -p release
 cp android/app/build/outputs/apk/release/app-release.apk release/nebula.apk
 bash scripts/sign-apk-rotation.sh release/nebula.apk
