@@ -3,7 +3,7 @@ import 'react-native-url-polyfill/auto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import { clientEnv } from '@/lib/env';
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
+import { AI_TIMEOUT_MS, fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { secureStorage } from '@/platform/secureStorage';
 import { installWebCrypto } from '@/platform/webcrypto';
 
@@ -24,7 +24,8 @@ export const supabase: SupabaseClient | null = clientEnv.ok
         flowType: 'pkce',
         detectSessionInUrl: false,
       },
-      // 15 s: una red que no responde nunca debe bloquear el arranque ni la interfaz.
-      global: { fetch: fetchWithTimeout(15_000) },
+      // 15 s: una red que no responde nunca debe bloquear el arranque ni la interfaz. El asistente
+      // es la excepción: buscar fuentes y redactar un plan puede tardar hasta ~140 s en el servidor.
+      global: { fetch: fetchWithTimeout((url) => (url.includes('/functions/v1/ai-assist') ? AI_TIMEOUT_MS : 15_000)) },
     })
   : null;
