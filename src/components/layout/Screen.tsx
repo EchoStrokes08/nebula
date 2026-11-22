@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { ArrowLeft } from 'lucide-react-native';
 import type { ReactNode } from 'react';
@@ -34,53 +35,66 @@ export function Screen({ title, titleAccent, overline, subtitle, trailing, child
   const desktop = navLayoutFor(width) === 'sidebar';
   const reduced = useReducedMotion();
   return (
-    <KeyboardScroll
-      style={styles.flex}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: (desktop ? spacing[10] : spacing[4]) + insets.top },
-        // En Android deja sitio al botón flotante de captura.
-        !desktop && styles.fabSpace,
-        desktop && styles.desktop,
-        desktop && wide && styles.wideContent,
-      ]}
-    >
-      {back ? (
-        <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace(back.fallback))}
-          accessibilityRole="button"
-          accessibilityLabel={back.label ?? 'Volver'}
-          style={styles.back}
-          hitSlop={8}
-        >
-          <ArrowLeft size={20} color={colors.textSecondary} />
-          <Text variant="callout" tone="secondary">{back.label ?? 'Volver'}</Text>
-        </Pressable>
-      ) : null}
-      <Animated.View entering={reduced ? undefined : FadeInDown.duration(380)} style={styles.header}>
-        <View style={styles.titleBox}>
-          {/* Regla de «carta estelar»: una estrella, la coordenada (fecha o contexto) y una línea fina. */}
-          <View style={styles.rule} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-            <Text style={styles.star}>✦</Text>
-            {overline ? <Text variant="overline" style={styles.overline} numberOfLines={1}>{overline.toUpperCase()}</Text> : null}
-            <View style={styles.line} />
+    <View style={styles.flex}>
+      <KeyboardScroll
+        style={styles.flex}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: (desktop ? spacing[10] : spacing[4]) + insets.top },
+          // En Android deja sitio al botón flotante de captura.
+          !desktop && styles.fabSpace,
+          desktop && styles.desktop,
+          desktop && wide && styles.wideContent,
+        ]}
+      >
+        {back ? (
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace(back.fallback))}
+            accessibilityRole="button"
+            accessibilityLabel={back.label ?? 'Volver'}
+            style={styles.back}
+            hitSlop={8}
+          >
+            <ArrowLeft size={20} color={colors.textSecondary} />
+            <Text variant="callout" tone="secondary">{back.label ?? 'Volver'}</Text>
+          </Pressable>
+        ) : null}
+        <Animated.View entering={reduced ? undefined : FadeInDown.duration(380)} style={styles.header}>
+          <View style={styles.titleBox}>
+            {/* Regla de «carta estelar»: una estrella, la coordenada (fecha o contexto) y una línea fina. */}
+            <View style={styles.rule} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              <Text style={styles.star}>✦</Text>
+              {overline ? <Text variant="overline" style={styles.overline} numberOfLines={1}>{overline.toUpperCase()}</Text> : null}
+              <View style={styles.line} />
+            </View>
+            {overline ? <Text variant="caption" style={styles.srOnly}>{overline}</Text> : null}
+            <Text accessibilityRole="header" style={[styles.title, desktop && styles.titleDesktop]}>
+              {title}
+              {titleAccent ? <Text style={[styles.title, desktop && styles.titleDesktop, styles.accent]}>{` ${titleAccent}`}</Text> : null}
+            </Text>
+            {subtitle ? <Text variant="callout" tone="secondary" style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
-          {overline ? <Text variant="caption" style={styles.srOnly}>{overline}</Text> : null}
-          <Text accessibilityRole="header" style={[styles.title, desktop && styles.titleDesktop]}>
-            {title}
-            {titleAccent ? <Text style={[styles.title, desktop && styles.titleDesktop, styles.accent]}>{` ${titleAccent}`}</Text> : null}
-          </Text>
-          {subtitle ? <Text variant="callout" tone="secondary" style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        {trailing}
-      </Animated.View>
-      {children}
-    </KeyboardScroll>
+          {trailing}
+        </Animated.View>
+        {children}
+      </KeyboardScroll>
+      {/* Franja tras la barra de estado: al desplazar (p. ej. con el teclado abierto) el contenido
+          se desvanece bajo la hora y la batería en vez de montarse encima. */}
+      {!desktop && insets.top > 0 ? (
+        <LinearGradient
+          pointerEvents="none"
+          colors={['rgba(11, 8, 21, 0.97)', 'rgba(11, 8, 21, 0.85)', 'rgba(11, 8, 21, 0)']}
+          locations={[0, 0.6, 1]}
+          style={[styles.statusScrim, { height: insets.top + spacing[4] }]}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  statusScrim: { position: 'absolute', top: 0, left: 0, right: 0 },
   content: { paddingHorizontal: spacing[5], paddingBottom: spacing[12], gap: spacing[6] },
   desktop: { paddingHorizontal: spacing[10], maxWidth: 1040, width: '100%', alignSelf: 'center' },
   fabSpace: { paddingBottom: spacing[16] + spacing[8] },
