@@ -62,7 +62,9 @@ function useNow(active: boolean): number {
 }
 
 export default function Enfoque() {
-  const params = useLocalSearchParams<{ habito?: string; tarea?: string; mini?: string }>();
+  const params = useLocalSearchParams<{ habito?: string; tarea?: string; mini?: string; min?: string }>();
+  // `min` (p. ej. desde el widget «Enfoque»): abre directamente un bloque libre de esa duración.
+  const presetMin = params.min && /^\d{1,3}$/.test(params.min) && Number(params.min) >= 1 && Number(params.min) <= 480 ? params.min : null;
   const desktop = getDesktopBridge();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -74,8 +76,8 @@ export default function Enfoque() {
   const timer = focus.timer;
   const now = useNow(!!timer && timer.pausedAt === null);
 
-  const [mode, setMode] = useState<FocusMode>('pomodoro');
-  const [customMin, setCustomMin] = useState('45');
+  const [mode, setMode] = useState<FocusMode>(presetMin ? 'custom' : 'pomodoro');
+  const [customMin, setCustomMin] = useState(presetMin ?? '45');
   const pomodoro = usePomodoroSettings((st) => st.settings);
   const setPomodoro = usePomodoroSettings((st) => st.set);
   const [habitId, setHabitId] = useState<string | null>(params.habito ?? null);

@@ -89,6 +89,49 @@
               "targetCellHeight": 3,
               "resizeMode": "horizontal|vertical",
               "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Orbita",
+              "label": "Nebula · Órbita",
+              "description": "Progreso del día, la semana y el mes de un vistazo.",
+              "minWidth": "110dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Constancia",
+              "label": "Nebula · Constancia",
+              "description": "Mapa de tus últimas semanas: cuanto más cálido, más completo fue el día.",
+              "minWidth": "250dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Enfoque",
+              "label": "Nebula · Enfoque",
+              "description": "Empieza un bloque de concentración con un toque.",
+              "minWidth": "110dp",
+              "minHeight": "80dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+              "resizeMode": "horizontal|vertical",
+              "updatePeriodMillis": 1800000
+            },
+            {
+              "name": "Accesos",
+              "label": "Nebula · Accesos rápidos",
+              "description": "Capturar, enfoque, planificar y diario.",
+              "minWidth": "250dp",
+              "minHeight": "40dp",
+              "targetCellWidth": 4,
+              "targetCellHeight": 1,
+              "resizeMode": "horizontal|vertical"
             }
           ],
           "fonts": [

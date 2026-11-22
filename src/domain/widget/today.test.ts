@@ -1,7 +1,7 @@
 import type { HabitKind, HabitTarget } from '@/domain/habits/types';
 import { toDayKey as d } from '@/lib/dates';
 
-import { applyToggle, toggleFor, trimLogs, widgetItems, type WidgetHabit, type WidgetLog, type WidgetSnapshot } from './today';
+import { applyToggle, focusSuggestion, perfectDays, toggleFor, trimLogs, widgetHeatmap, widgetItems, widgetOrbits, type WidgetHabit, type WidgetLog, type WidgetSnapshot } from './today';
 
 const habit = (id: string, kind: HabitKind, target: Partial<HabitTarget> = {}, extra: Partial<WidgetHabit> = {}): WidgetHabit => ({
   id,
@@ -95,4 +95,38 @@ describe('toggleFor / applyToggle', () => {
 it('trimLogs conserva solo la ventana necesaria', () => {
   const logs = [log('a', '2026-01-01'), log('a', '2026-11-01')];
   expect(trimLogs(logs, d('2026-11-18')).map((l) => l.dayKey)).toEqual(['2026-11-01']);
+});
+
+describe('widgets complementarios', () => {
+  it('widgetOrbits: día, semana y mes con tareas de la instantánea', () => {
+    const s = { ...snap([habit('leer', 'binary')], [log('leer', '2026-11-16'), log('leer', '2026-11-18')]), tasks: [{ status: 'done' as const, dueDate: d('2026-11-17') }] };
+    const r = widgetOrbits(s, NOW);
+    expect(r.day).toEqual({ done: 1, total: 1, progress: 1 });
+    expect(r.week).toMatchObject({ total: 8, done: 3 });
+    expect(r.month.total).toBe(31); // 30 días de noviembre + la tarea
+  });
+
+  it('widgetHeatmap: semanas completas, futuro sin pintar y sin hábitos = null', () => {
+    const s = snap([habit('leer', 'binary'), habit('agua', 'binary')], [log('leer', '2026-11-16'), log('agua', '2026-11-16'), log('leer', '2026-11-17')]);
+    const { days } = widgetHeatmap(s, NOW, 3);
+    expect(days).toHaveLength(21);
+    expect(days[0]!.day).toBe('2026-11-02');
+    const at = (k: string) => days.find((x) => x.day === k)!;
+    expect(at('2026-11-16').ratio).toBe(1);
+    expect(at('2026-11-17').ratio).toBe(0.5);
+    expect(at('2026-11-19')).toMatchObject({ future: true, ratio: null });
+    expect(perfectDays(days, d('2026-11-18'))).toBe(0); // el 17 no fue completo
+    expect(widgetHeatmap(snap([habit('n', 'binary', {}, { startDay: d('2026-11-18') })]), NOW, 1).days[0]!.ratio).toBeNull();
+  });
+
+  it('perfectDays: hoy incompleto no corta la cuenta', () => {
+    const s = snap([habit('leer', 'binary')], [log('leer', '2026-11-16'), log('leer', '2026-11-17')]);
+    expect(perfectDays(widgetHeatmap(s, NOW, 1).days, d('2026-11-18'))).toBe(2);
+  });
+
+  it('focusSuggestion: el hábito de minutos al que más le falta hoy', () => {
+    const s = snap([habit('leer', 'duration', { target: 15 }), habit('piano', 'duration', { target: 30 }), habit('cama', 'binary')], [log('piano', '2026-11-18', 20)]);
+    expect(focusSuggestion(s, NOW)).toEqual({ habitId: 'leer', name: 'leer', leftMinutes: 15 });
+    expect(focusSuggestion(snap([habit('cama', 'binary')]), NOW)).toBeNull();
+  });
 });
