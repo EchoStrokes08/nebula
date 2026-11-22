@@ -62,6 +62,14 @@ Para declarar «hoy 0», se registra 0. Así la constancia no se infla con días
 - **Racha actual**: periodos `met` consecutivos hacia atrás. El periodo en curso suma si ya está
   cumplido y no rompe si está pendiente. Pausas y días no programados se saltan. `unknown` corta.
   La racha nunca se falsifica ni se «congela» artificialmente; la métrica principal es la constancia (D-05).
+- **Día de descanso** (`src/domain/habits/rest.ts`): en hábitos diarios, uno por semana, solo hoy
+  (si aún no está cumplido) o mañana, nunca un día pasado. Es una pausa de un día: no rompe ni
+  suma racha y no cuenta en la constancia. Compatible con D-05 porque se decide antes, no tras fallar.
+- **Órbitas de semana y mes** (`src/domain/stats/orbits.ts`): cada periodo de hábito que cae en la
+  ventana es una unidad (un día de un diario, la semana de un semanal —también la que empezó el mes
+  anterior—) y suma su progreso parcial (la reducción solo al cerrarse cumplida); cada tarea no
+  cancelada con fecha límite en la ventana es otra unidad. Los días futuros cuentan en el total. El
+  **ritmo** compara lo hecho con `total × parte transcurrida` (contando hoy entero).
 - **Modo recuperación** (`src/domain/habits/recovery.ts`): hábitos diarios (no de reducción) con
   ≥ 2 días programados seguidos sin cumplir y sin cumplir hoy. Propone un mínimo para hoy: el
   `min_target` del usuario o ~25 % del objetivo (en duración, múltiplos de 5 y mínimo 5 min).
@@ -106,6 +114,12 @@ Implementación: `src/domain/planning/*`, `src/domain/calendar/*`, `src/domain/f
 - **Puntuación del planificador** = fecha (vencida 60 · hoy 50 · ≤ 2 días 30 · ≤ 7 días 15 · resto 5) + prioridad × 12 + min(desbloquea, 5) × 4. Mayor puntuación se coloca antes; las de prioridad alta van primero a las franjas preferidas de concentración.
 - Descanso de 10 min entre bloques; una tarea con prerrequisitos solo se coloca si estos se colocan antes en el mismo plan (y empieza tras ellos). En Planificar no se dividen tareas: si no caben, se informa.
 - **Día viable:** Completo (todo lo que cabe), Esencial (vencidas, de hoy y prioridad alta), Recuperación (50 % de la capacidad, ≤ 3 imprescindibles). Lo que queda fuera solo se aplaza si el usuario lo marca.
+- **Planificar hoy o mañana con hábitos** (`src/domain/planning/habitPlan.ts`): entran los hábitos que
+  tocan ese día sin cumplir (no los de reducción). Diarios: duración = lo que falta (5–180 min), resto
+  15 min; puntúan como «de hoy». Semanales/mensuales solo si les falta algo: flexible = sesión mínima,
+  minutos = lo que falta repartido entre los días que quedan (10–120), resto 15–30 min; vencen al
+  cerrar su periodo. Los diarios con hora propia y los ya colocados ese día quedan fijos. Aceptar el
+  plan coloca el hábito ese día en la agenda (guardado en el dispositivo) sin cambiar su hora de siempre.
 - **Negociación:** ante un evento que choca con un bloque planificado se ofrece mover (siguiente hueco del día), dividir (si caben ≥ 15 min antes; la segunda parte pasa a una tarea de continuación que depende de la primera) o mantener. Nunca automático.
 - **Temporizador:** basado en marcas de tiempo; un bloque desatendido más allá de su duración no suma más enfoque; terminar antes registra solo el tiempo real.
 - **Eventos recurrentes** conservan la hora local de su zona aunque cambie el horario de verano.
