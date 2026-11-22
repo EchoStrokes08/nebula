@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { isNewer, parseUpdateInfo, isAllowedDownload, looksLikeAppImage } = require('./update.cjs');
+const { isNewer, parseUpdateInfo, isAllowedDownload, looksLikeAppImage, looksLikeWindowsExe } = require('./update.cjs');
 
 test('compara versiones X.Y.Z numéricamente', () => {
   assert.equal(isNewer('1.2.0', '1.1.1'), true);
@@ -32,4 +32,10 @@ test('reconoce la cabecera de un AppImage', () => {
     const fd = fs.openSync(installed, 'r'); const head = Buffer.alloc(16); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
     assert.equal(looksLikeAppImage(head), true);
   }
+});
+
+test('reconoce la cabecera de un instalador de Windows', () => {
+  assert.equal(looksLikeWindowsExe(Buffer.from('MZ\x90\x00')), true);
+  assert.equal(looksLikeWindowsExe(Buffer.from('<html>Not Found</html>')), false);
+  assert.equal(looksLikeWindowsExe(Buffer.alloc(0)), false);
 });

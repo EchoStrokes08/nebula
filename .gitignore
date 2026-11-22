@@ -57,3 +57,6 @@ playwright-report/
 
 # Firebase (push): configuración del proyecto, fuera del repositorio público
 google-services.json
+
+# Compilación de módulos nativos locales
+modules/*/android/build/

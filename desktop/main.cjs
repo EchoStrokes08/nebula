@@ -9,7 +9,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { readJson, writeJson, safeBounds } = require('./state.cjs');
 const { isAllowedRoute, deepLinkToRoute, findDeepLink, autostartEntry, normalizeShortcut, DEFAULT_SHORTCUT } = require('./links.cjs');
-const { UPDATE_INFO_URL, RELEASES_URL, isNewer, parseUpdateInfo, looksLikeAppImage } = require('./update.cjs');
+const { UPDATE_INFO_URL, RELEASES_URL, isNewer, parseUpdateInfo, looksLikeAppImage, looksLikeWindowsExe } = require('./update.cjs');
 const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
@@ -298,9 +298,12 @@ function applyGlobalShortcut(accelerator) {
 }
 
 // ---- Actualizaciones ------------------------------------------------------------------------
-// El proceso principal consulta version.json (el renderer no puede: CSP) y, en Linux con
-// AppImage, descarga el nuevo, lo verifica, sustituye el actual y reinicia. En Windows abre el
-// instalador nuevo y en otro caso la página de descargas. La URL de descarga nunca la decide el renderer.
+// El proceso principal consulta version.json (el renderer no puede: CSP). Las actualizaciones se
+// preparan solas en segundo plano y se aplican sin preguntar:
+// - Linux (AppImage): descarga el nuevo, lo verifica y sustituye el actual; la próxima vez que se abra
+//   Nebula ya es la versión nueva («Reiniciar ahora» la aplica al momento).
+// - Windows: descarga el instalador y lo ejecuta en silencio (/S) al cerrar Nebula o con «Reiniciar ahora».
+// En otro caso se abre la página de descargas. La URL de descarga nunca la decide el renderer.
 async function fetchUpdateInfo() {
   const r = await net.fetch(`${UPDATE_INFO_URL}?t=${Date.now()}`, { cache: 'no-store' });
   if (!r.ok) return null;
@@ -308,44 +311,104 @@ async function fetchUpdateInfo() {
 }
 // NEBULA_PRETEND_VERSION solo sirve para probar el actualizador con una versión ya publicada.
 const currentVersion = () => (/^\d+\.\d+\.\d+$/.test(process.env.NEBULA_PRETEND_VERSION ?? '') ? process.env.NEBULA_PRETEND_VERSION : app.getVersion());
-const canSelfUpdate = () => process.platform === 'linux' && !!process.env.APPIMAGE;
-let updating = false;
-handle('update:check', async () => {
-  try {
-    const info = await fetchUpdateInfo();
-    if (!info || !isNewer(info.version, currentVersion())) return null;
-    return { current: currentVersion(), latest: info.version, notes: info.notes, canInstall: canSelfUpdate() && !!info.linux };
-  } catch { return null; }
-});
-handle('update:install', async () => {
-  if (updating) return { status: 'busy' };
-  updating = true;
-  const target = process.env.APPIMAGE;
-  const temp = target ? `${target}.download` : null;
-  try {
-    const info = await fetchUpdateInfo();
-    // Windows: se abre el instalador nuevo en el navegador; instala encima conservando los datos.
-    if (process.platform === 'win32' && info?.windows) { await shell.openExternal(info.windows); return { status: 'opened' }; }
-    if (!info || !info.linux || !canSelfUpdate()) { await shell.openExternal(RELEASES_URL); return { status: 'opened' }; }
-    const r = await net.fetch(info.linux, { redirect: 'follow' });
-    if (!r.ok || !r.body) throw new Error(`descarga ${r.status}`);
-    await pipeline(Readable.fromWeb(r.body), fs.createWriteStream(temp, { mode: 0o755 }));
-    const fd = fs.openSync(temp, 'r'); const head = Buffer.alloc(16); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
-    if (!looksLikeAppImage(head) || fs.statSync(temp).size < 20 * 1024 * 1024) throw new Error('el archivo descargado no es un AppImage');
-    fs.chmodSync(temp, 0o755);
-    fs.renameSync(temp, target); // el proceso actual sigue usando el archivo antiguo hasta reiniciar
+const selfUpdateKind = (info) => {
+  if (process.platform === 'linux' && process.env.APPIMAGE && info?.linux) return 'linux';
+  if (process.platform === 'win32' && app.isPackaged && info?.windows) return 'win32';
+  return null;
+};
+/** Actualización ya descargada y lista: { version, kind, file, applied }. */
+let prepared = null;
+let preparing = null;
+
+async function download(url, file, mode) {
+  const r = await net.fetch(url, { redirect: 'follow' });
+  if (!r.ok || !r.body) throw new Error(`descarga ${r.status}`);
+  await pipeline(Readable.fromWeb(r.body), fs.createWriteStream(file, { mode }));
+  const fd = fs.openSync(file, 'r'); const head = Buffer.alloc(16); fs.readSync(fd, head, 0, 16, 0); fs.closeSync(fd);
+  return { head, size: fs.statSync(file).size };
+}
+
+async function prepareUpdate() {
+  const info = await fetchUpdateInfo();
+  if (!info || !isNewer(info.version, currentVersion())) return { status: 'none' };
+  if (prepared?.version === info.version) return { status: 'ready' };
+  const kind = selfUpdateKind(info);
+  if (kind === 'linux') {
+    const target = process.env.APPIMAGE;
+    const temp = `${target}.download`;
+    try {
+      const { head, size } = await download(info.linux, temp, 0o755);
+      if (!looksLikeAppImage(head) || size < 20 * 1024 * 1024) throw new Error('el archivo descargado no es un AppImage');
+      fs.chmodSync(temp, 0o755);
+      fs.renameSync(temp, target); // el proceso actual sigue usando el archivo antiguo hasta reiniciar
+    } catch (e) { fs.rmSync(temp, { force: true }); throw e; }
+    prepared = { version: info.version, kind, file: target, applied: false };
+    return { status: 'ready' };
+  }
+  if (kind === 'win32') {
+    const dir = path.join(app.getPath('userData'), 'actualizaciones');
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `Nebula-Setup-${info.version}.exe`);
+    try {
+      const { head, size } = await download(info.windows, file, 0o644);
+      if (!looksLikeWindowsExe(head) || size < 100 * 1024) throw new Error('el archivo descargado no es un instalador');
+    } catch (e) { fs.rmSync(file, { force: true }); throw e; }
+    prepared = { version: info.version, kind, file, applied: false };
+    return { status: 'ready' };
+  }
+  return { status: 'unsupported' };
+}
+
+/** Aplica la actualización preparada. Con `restart` vuelve a abrir Nebula; sin él solo se instala. */
+function applyPrepared(restart) {
+  if (!prepared || prepared.applied) return false;
+  prepared.applied = true;
+  if (prepared.kind === 'win32') {
+    // --updated: el instalador espera a que Nebula termine y conserva accesos directos y datos.
+    const args = ['/S', '--updated', ...(restart ? ['--force-run'] : [])];
+    spawn(prepared.file, args, { detached: true, stdio: 'ignore' }).unref();
+    return true;
+  }
+  if (restart) {
     // app.relaunch() no sirve aquí: arrancaría desde el montaje del AppImage viejo, que desaparece
     // al salir, y chocaría con el bloqueo de instancia única. Un `sh` independiente espera a que
     // esta instancia termine y abre el AppImage nuevo con un entorno limpio.
     const env = { ...process.env };
     for (const k of ['APPDIR', 'APPIMAGE', 'ARGV0', 'OWD', 'NEBULA_PRETEND_VERSION']) delete env[k];
-    spawn('/bin/sh', ['-c', 'sleep 2; exec "$0"', target], { detached: true, stdio: 'ignore', cwd: app.getPath('home'), env }).unref();
-    setTimeout(() => { quitting = true; app.exit(0); }, 300);
-    return { status: 'restarting' };
+    spawn('/bin/sh', ['-c', 'sleep 2; exec "$0"', prepared.file], { detached: true, stdio: 'ignore', cwd: app.getPath('home'), env }).unref();
+  }
+  return true;
+}
+// Windows: si quedó un instalador descargado, se instala en silencio al cerrar Nebula.
+app.on('will-quit', () => { if (prepared?.kind === 'win32') applyPrepared(false); });
+
+handle('update:check', async () => {
+  try {
+    const info = await fetchUpdateInfo();
+    if (!info || !isNewer(info.version, currentVersion())) return null;
+    const kind = selfUpdateKind(info);
+    return { current: currentVersion(), latest: info.version, notes: info.notes, canInstall: !!kind, auto: !!kind, ready: prepared?.version === info.version, platform: process.platform };
+  } catch { return null; }
+});
+handle('update:prepare', async () => {
+  preparing ??= prepareUpdate().catch((e) => ({ status: 'error', message: e instanceof Error ? e.message : String(e) })).finally(() => { preparing = null; });
+  return preparing;
+});
+handle('update:install', async () => {
+  try {
+    const r = await (preparing ?? prepareUpdate());
+    if (r.status === 'ready' && applyPrepared(true)) {
+      setTimeout(() => { quitting = true; app.exit(0); }, 300);
+      return { status: 'restarting' };
+    }
+    if (r.status === 'error') return r;
+    const info = await fetchUpdateInfo().catch(() => null);
+    await shell.openExternal(process.platform === 'win32' && info?.windows ? info.windows : RELEASES_URL);
+    return { status: 'opened' };
   } catch (e) {
-    if (temp) fs.rmSync(temp, { force: true });
     return { status: 'error', message: e instanceof Error ? e.message : String(e) };
-  } finally { updating = false; }
+  }
 });
 
 // ---- Inicio con el sistema en Linux (XDG autostart) ------------------------------------------

@@ -34,4 +34,9 @@ function looksLikeAppImage(header) {
   return header.length >= 11 && header[0] === 0x7f && header[1] === 0x45 && header[2] === 0x4c && header[3] === 0x46 && header[8] === 0x41 && header[9] === 0x49 && header[10] === 0x02;
 }
 
-module.exports = { UPDATE_INFO_URL, RELEASES_URL, isNewer, parseUpdateInfo, isAllowedDownload, looksLikeAppImage };
+/** Un ejecutable de Windows (PE) empieza por «MZ». */
+function looksLikeWindowsExe(header) {
+  return header.length >= 2 && header[0] === 0x4d && header[1] === 0x5a;
+}
+
+module.exports = { UPDATE_INFO_URL, RELEASES_URL, isNewer, parseUpdateInfo, isAllowedDownload, looksLikeAppImage, looksLikeWindowsExe };

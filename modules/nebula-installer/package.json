@@ -1,0 +1,7 @@
+{
+  "name": "nebula-installer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Instalación de actualizaciones de Nebula con PackageInstaller (Android)",
+  "main": "index.ts"
+}

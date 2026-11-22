@@ -60,7 +60,12 @@ Las migraciones locales nuevas deben aplicarse antes de instalar el cliente nuev
 - Instalación, firma, actualización y desinstalación en Windows.
 - Firma de Android y revisión del APK/AAB de producción.
 - Push social: requiere configurar Expo/FCM; las notificaciones locales son independientes.
-- Widgets nativos y actualizaciones automáticas: siguen pendientes de implementación y validación.
+- Actualizaciones automáticas (desde 1.4.2): en Android se instalan con `PackageInstaller`
+  (`modules/nebula-installer`). La primera vez pide confirmar; desde Android 12, las siguientes se
+  instalan sin diálogos al salir de la app. Falta validarlo en el Xiaomi, porque MIUI puede mostrar
+  su propio diálogo. En Windows el instalador se ejecuta en silencio (`/S --updated`) al cerrar
+  Nebula; falta probarlo en un Windows real. En Linux está validado: el AppImage se descarga y se
+  sustituye solo.
 
 No confundir exportar JavaScript nativo con compilar un APK, ni empaquetar con publicar.
 
