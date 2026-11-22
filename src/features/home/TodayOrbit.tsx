@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, type Href } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedProps, useSharedValue, withTiming } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
@@ -13,7 +13,7 @@ import { platformHaptics } from '@/platform/haptics';
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 /** Anillo de progreso con brillo neón: capas anchas y translúcidas bajo el trazo principal. */
-function GlowRing({ progress, size = 128, stroke = 10 }: { progress: number; size?: number; stroke?: number }) {
+function GlowRing({ progress, marker, size = 128, stroke = 10 }: { progress: number; marker?: number; size?: number; stroke?: number }) {
   const p = Number.isFinite(progress) ? Math.max(0, Math.min(1, progress)) : 0;
   const pad = 12; // margen para que el brillo no se corte
   const r = (size - stroke) / 2 - pad;
@@ -43,6 +43,13 @@ function GlowRing({ progress, size = 128, stroke = 10 }: { progress: number; siz
           <AnimatedCircle {...common} stroke="url(#orbitArc)" strokeWidth={stroke} animatedProps={arc} />
         </>
       ) : null}
+      {marker !== undefined && marker > 0 && marker < 1 ? (
+        // Marca de ritmo: dónde deberías ir si avanzaras igual cada día del periodo.
+        <>
+          <Circle cx={mid + r * Math.sin(2 * Math.PI * marker)} cy={mid - r * Math.cos(2 * Math.PI * marker)} r={stroke / 2 + 3} fill="#FFFFFF" fillOpacity={0.25} />
+          <Circle cx={mid + r * Math.sin(2 * Math.PI * marker)} cy={mid - r * Math.cos(2 * Math.PI * marker)} r={stroke / 2 - 1} fill="#FFFFFF" stroke="#2B1460" strokeWidth={1.5} />
+        </>
+      ) : null}
     </Svg>
   );
 }
@@ -53,12 +60,33 @@ export interface OrbitStat {
   href?: Href;
 }
 
+export interface OrbitView {
+  key: 'day' | 'week' | 'month';
+  /** Texto de la pestaña («Hoy», «Semana», «Mes»). */
+  tab: string;
+  eyebrow: string;
+  /** Lo que va bajo el porcentaje: «del día», «de la semana»… */
+  unit: string;
+  progress: number;
+  /** Parte del periodo transcurrida (0..1): se marca en el anillo como referencia de ritmo. */
+  marker?: number;
+  headline: string;
+  caption?: string;
+  stats: OrbitStat[];
+}
+
+const pctOf = (p: number) => Math.round(Math.max(0, Math.min(1, Number.isFinite(p) ? p : 0)) * 100);
+
 /**
- * Hoy · «Tu órbita de hoy»: el centro visual de la pantalla. Degradado cósmico, anillo luminoso
- * con el porcentaje del día y cifras grandes separadas por divisores finos (cada una abre su sección).
+ * Hoy · «Tu órbita»: el centro visual de la pantalla. Degradado cósmico, anillo luminoso con el
+ * porcentaje y cifras grandes (cada una abre su sección). Pestañas para ver la órbita del día,
+ * de la semana y del mes; en las dos últimas, una marca en el anillo enseña el ritmo esperado.
  */
-export function TodayOrbit({ progress, headline, caption, stats }: { progress: number; headline: string; caption?: string; stats: OrbitStat[] }) {
-  const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
+export function TodayOrbit({ views }: { views: OrbitView[] }) {
+  const [selected, setSelected] = useState<OrbitView['key']>(views[0]?.key ?? 'day');
+  const view = views.find((v) => v.key === selected) ?? views[0];
+  if (!view) return null;
+  const pct = pctOf(view.progress);
   return (
     <View style={styles.shadow}>
       <LinearGradient colors={['#4A22B8', '#8B37C9', '#2C5BD6']} locations={[0, 0.55, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.root} accessibilityRole="summary">
@@ -67,23 +95,45 @@ export function TodayOrbit({ progress, headline, caption, stats }: { progress: n
         <LinearGradient colors={['rgba(255,255,255,0.16)', 'rgba(255,255,255,0)']} start={{ x: 0, y: 0 }} end={{ x: 0, y: 0.6 }} style={StyleSheet.absoluteFill} pointerEvents="none" />
         {STARS.map((s, i) => <View key={i} pointerEvents="none" style={[styles.star, { left: `${s[0]}%`, top: `${s[1]}%`, width: s[2], height: s[2], borderRadius: s[2] }]} />)}
 
+        {views.length > 1 ? (
+          <View style={styles.tabs} accessibilityRole="tablist">
+            {views.map((v) => {
+              const on = v.key === view.key;
+              return (
+                <Pressable
+                  key={v.key}
+                  onPress={() => { if (!on) { platformHaptics.tap(); setSelected(v.key); } }}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                  aria-selected={on}
+                  accessibilityLabel={`${v.tab}: ${pctOf(v.progress)} %`}
+                  style={({ pressed }) => [styles.tab, on && styles.tabOn, pressed && styles.pressed]}
+                >
+                  <Text variant="caption" style={on ? styles.tabTextOn : styles.tabText}>{v.tab}</Text>
+                  <Text variant="caption" tabular style={on ? styles.tabPctOn : styles.tabPct}>{pctOf(v.progress)}%</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
         <View style={styles.top}>
-          <View style={styles.ring} accessible accessibilityRole="progressbar" accessibilityLabel={`Progreso del día: ${pct} %`} accessibilityValue={{ min: 0, max: 100, now: pct }}>
-            <GlowRing progress={progress} />
+          <View style={styles.ring} accessible accessibilityRole="progressbar" accessibilityLabel={`Progreso ${view.unit}: ${pct} %`} accessibilityValue={{ min: 0, max: 100, now: pct }}>
+            <GlowRing progress={view.progress} marker={view.marker} />
             <View style={styles.ringCenter} pointerEvents="none">
               <Text style={styles.pct} tabular>{pct}<Text style={styles.pctSign}>%</Text></Text>
-              <Text variant="caption" style={styles.dim}>del día</Text>
+              <Text variant="caption" style={styles.dim}>{view.unit}</Text>
             </View>
           </View>
           <View style={styles.copy}>
-            <Text variant="overline" style={styles.eyebrow}>TU ÓRBITA DE HOY</Text>
-            <Text variant="title2" style={styles.headline}>{headline}</Text>
-            {caption ? <Text variant="callout" style={styles.dim}>{caption}</Text> : null}
+            <Text variant="overline" style={styles.eyebrow}>{view.eyebrow}</Text>
+            <Text variant="title2" style={styles.headline}>{view.headline}</Text>
+            {view.caption ? <Text variant="callout" style={styles.dim}>{view.caption}</Text> : null}
           </View>
         </View>
 
         <View style={styles.stats}>
-          {stats.map((s, i) => (
+          {view.stats.map((s, i) => (
             <View key={s.label} style={styles.statWrap}>
               {i > 0 ? <View style={styles.divider} /> : null}
               <Pressable
@@ -94,7 +144,7 @@ export function TodayOrbit({ progress, headline, caption, stats }: { progress: n
                 style={({ pressed }) => [styles.stat, pressed && styles.pressed]}
               >
                 <Text style={styles.statValue} tabular numberOfLines={1} adjustsFontSizeToFit>{s.value}</Text>
-                <Text variant="caption" style={styles.dim}>{s.label}</Text>
+                <Text variant="caption" style={styles.dim} numberOfLines={1}>{s.label}</Text>
               </Pressable>
             </View>
           ))}
@@ -114,6 +164,13 @@ const styles = StyleSheet.create({
   orbPink: { top: -70, right: -50, width: 200, height: 200, backgroundColor: 'rgba(255, 138, 216, 0.32)' },
   orbCyan: { bottom: -90, left: -60, width: 220, height: 220, backgroundColor: 'rgba(125, 243, 255, 0.18)' },
   star: { position: 'absolute', backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+  tabs: { flexDirection: 'row', alignSelf: 'stretch', padding: 3, gap: 3, borderRadius: radius.pill, backgroundColor: 'rgba(10, 6, 24, 0.32)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.12)' },
+  tab: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: 6, paddingVertical: 7, borderRadius: radius.pill },
+  tabOn: { backgroundColor: 'rgba(255, 255, 255, 0.92)' },
+  tabText: { color: 'rgba(245, 238, 255, 0.85)', fontFamily: fontFamily.semibold },
+  tabTextOn: { color: '#2B1460', fontFamily: fontFamily.semibold },
+  tabPct: { color: 'rgba(245, 238, 255, 0.6)' },
+  tabPctOn: { color: '#6B3FD4', fontFamily: fontFamily.semibold },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   ring: { width: 128, height: 128, marginVertical: -spacing[2], marginLeft: -spacing[2] },
   ringCenter: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },

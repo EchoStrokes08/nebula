@@ -4,7 +4,9 @@ import { SectionHeader } from '@/components/layout/SectionHeader';
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { GlassCard } from '@/components/primitives/GlassCard';
-import { TodayOrbit } from '@/features/home/TodayOrbit';
+import { TodayOrbit, type OrbitView } from '@/features/home/TodayOrbit';
+import { periodOrbit, type PeriodOrbit } from '@/domain/stats/orbits';
+import { useMemo } from 'react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
 import { TodayPhrase } from '@/features/motivation/TodayPhrase';
@@ -36,6 +38,35 @@ function greeting(hour: number) {
 }
 
 /** Fecha del día civil del usuario (misma zona que el resto de cálculos). */
+/** «vas al ritmo», «vas 2 por delante», «vas 3 por detrás del ritmo». */
+function paceText(o: PeriodOrbit) {
+  const n = Math.round(Math.abs(o.pace));
+  if (o.total === 0) return '';
+  if (o.remaining === 0) return 'todo cerrado';
+  if (n === 0) return 'vas al ritmo';
+  return o.pace > 0 ? `vas ${n} por delante` : `vas ${n} por detrás del ritmo`;
+}
+
+function periodView(o: PeriodOrbit, key: 'week' | 'month'): OrbitView {
+  const word = key === 'week' ? 'semana' : 'mes';
+  const left = o.daysLeft === 1 ? (key === 'week' ? 'último día de la semana' : 'último día del mes') : `quedan ${o.daysLeft} días`;
+  return {
+    key,
+    tab: key === 'week' ? 'Semana' : 'Mes',
+    eyebrow: key === 'week' ? 'TU ÓRBITA DE LA SEMANA' : 'TU ÓRBITA DEL MES',
+    unit: key === 'week' ? 'de la semana' : 'del mes',
+    progress: o.progress,
+    marker: o.elapsed,
+    headline: o.total === 0 ? `Nada planificado este ${word}` : o.remaining === 0 ? (key === 'week' ? '¡Semana completada!' : '¡Mes completado!') : `Faltan ${o.remaining} de ${o.total}`,
+    caption: o.total === 0 ? 'Crea hábitos o pon fecha a tus tareas.' : `entre hábitos y tareas · ${left} · ${paceText(o)}`,
+    stats: [
+      { label: 'Hábitos', value: `${Math.floor(o.habits.done)}/${o.habits.total}`, href: '/habitos' },
+      { label: 'Tareas', value: `${o.tasks.done}/${o.tasks.total}`, href: '/agenda' },
+      { label: o.daysLeft === 1 ? 'Día restante' : 'Días restantes', value: String(o.daysLeft) },
+    ],
+  };
+}
+
 const dayLabel = (day: string) => new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${day}T12:00:00Z`));
 
 export default function HoyScreen() {
@@ -49,7 +80,7 @@ export default function HoyScreen() {
   const done = forToday.length - pending.length;
   const recovery = (summaries ?? []).filter((s) => s.recovery && !s.habit.archived);
   const tasks = useTasks();
-  const allTasks = tasks.data ?? [];
+  const allTasks = useMemo(() => tasks.data ?? [], [tasks.data]);
   const todayTasks = tasksForToday(allTasks, today);
   const dag = analyzeDag(
     allTasks.map((t) => ({ id: t.id, done: t.status === 'done' || t.status === 'cancelled' })),
@@ -64,6 +95,16 @@ export default function HoyScreen() {
   // Entrada escalonada de los bloques (sin movimiento si el sistema lo pide).
   const enter = (i: number) => (reduced ? undefined : FadeInDown.duration(420).delay(60 + i * 70));
   const [essential, setEssential] = useEssentialMode(today);
+  const weekStartsOn = useMyProfile().data?.week_starts_on ?? 1;
+  const periods = useMemo(() => {
+    if (!summaries) return null;
+    const habits = summaries.map((s) => s.habit);
+    const logsFor = (id: string) => summaries.find((s) => s.habit.id === id)?.logs ?? [];
+    return {
+      week: periodOrbit(habits, logsFor, allTasks, 'week', today, weekStartsOn),
+      month: periodOrbit(habits, logsFor, allTasks, 'month', today, weekStartsOn),
+    };
+  }, [summaries, allTasks, today, weekStartsOn]);
 
   if (essential && summaries) {
     return (
@@ -77,16 +118,25 @@ export default function HoyScreen() {
   return (
     <Screen title={helloTitle} titleAccent={helloAccent} overline={dayLabel(today)}>
       <TodayPhrase moment={new Date().getHours() >= 21 ? 'cierre' : 'inicio'} />
-      {forToday.length || todayTasks.length ? (
+      {forToday.length || todayTasks.length || periods?.week.total || periods?.month.total ? (
         <Animated.View entering={enter(0)}>
           <TodayOrbit
-            progress={forToday.length ? done / forToday.length : 0}
-            headline={pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : forToday.length ? `Te quedan ${pending.length} hábitos` : 'Sin hábitos para hoy'}
-            caption={todayTasks.length ? `y ${todayTasks.length} ${todayTasks.length === 1 ? 'tarea' : 'tareas'} en tu agenda` : 'Lo importante de tu día, de un vistazo.'}
-            stats={[
-              { label: 'Hábitos', value: `${done}/${forToday.length}`, href: '/habitos' },
-              { label: 'Tareas hoy', value: String(todayTasks.length), href: '/agenda' },
-              { label: best === 1 ? 'Día de racha' : 'Días de racha', value: String(best) },
+            views={[
+              {
+                key: 'day',
+                tab: 'Hoy',
+                eyebrow: 'TU ÓRBITA DE HOY',
+                unit: 'del día',
+                progress: forToday.length ? done / forToday.length : 0,
+                headline: pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : forToday.length ? `Te quedan ${pending.length} hábitos` : 'Sin hábitos para hoy',
+                caption: todayTasks.length ? `y ${todayTasks.length} ${todayTasks.length === 1 ? 'tarea' : 'tareas'} en tu agenda` : 'Lo importante de tu día, de un vistazo.',
+                stats: [
+                  { label: 'Hábitos', value: `${done}/${forToday.length}`, href: '/habitos' },
+                  { label: 'Tareas hoy', value: String(todayTasks.length), href: '/agenda' },
+                  { label: best === 1 ? 'Día de racha' : 'Días de racha', value: String(best) },
+                ],
+              },
+              ...(periods ? [periodView(periods.week, 'week'), periodView(periods.month, 'month')] : []),
             ]}
           />
         </Animated.View>
