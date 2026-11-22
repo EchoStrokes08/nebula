@@ -3,10 +3,10 @@ import { z } from 'zod';
 import { authenticate, body, headers, json } from '../_shared/http.ts';
 import { createProvider, ProviderUnavailable, type Attempt } from './provider.ts';
 import { rankModels, type HealthRow } from './health.ts';
-import { verifyPlanLinks } from './links.ts';
+import { loadRevision } from './revision.ts';
 import { toLegacyResponse } from '../../../src/domain/capture/legacy.ts';
-import { normalizeActions } from '../../../src/domain/capture/actions.ts';
-import { busyFromTasks, schedulePlan, type SchedulePlan } from '../../../src/domain/capture/schedule.ts';
+import { normalizeActions, type ProposedAction } from '../../../src/domain/capture/actions.ts';
+import { busyFromTasks, schedulePlan } from '../../../src/domain/capture/schedule.ts';
 import { assistantContextSchema, historySchema } from '../../../src/domain/assistant/context.ts';
 
 const legacyContext = z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), tasksCompleted: z.number().int().min(0).max(100000), habitRecords: z.number().int().min(0).max(100000), activeDays: z.number().int().min(0).max(7) }).strict();
@@ -15,6 +15,7 @@ const requestSchema = z.object({
   // Clientes antiguos envían solo el resumen numérico; los nuevos, el contexto completo.
   context: z.union([assistantContextSchema, legacyContext]),
   history: historySchema.optional(),
+  reviseGoal: z.uuid().optional(),
   /** Lo envían las apps 1.2.0+; sin él es una app antigua que necesita el formato anterior. */
   client: z.object({ version: z.string().regex(/^\d+\.\d+\.\d+$/), platform: z.enum(['android', 'ios', 'web', 'desktop']) }).strict().optional(),
 }).strict();
@@ -51,9 +52,13 @@ Deno.serve(async (req) => {
     const { client, user } = await authenticate(req);
     const parsed = requestSchema.safeParse(await body(req));
     if (!parsed.success) return json({ error: 'invalid request', code: 'invalid_request' }, 400);
+    const ctx = parsed.data.context;
+    const goalId = parsed.data.reviseGoal;
+    if (goalId && (!parsed.data.client || !('now' in ctx))) return json({ code: 'invalid_request' }, 400);
     const rows = await modelHealth();
     const attempts: Attempt[] = [];
     const provider = createProvider((k) => Deno.env.get(k), fetch, Date.now, {
+      groundPlans: true,
       order: (ids) => rankModels(ids, rows, Date.now()),
       onAttempt: (a) => attempts.push(a),
     });
@@ -61,9 +66,15 @@ Deno.serve(async (req) => {
     const { data, error } = await client.rpc('consume_ai_request');
     if (error) return json({ error: 'AI disabled or unavailable', code: 'ai_disabled' }, 403);
     if (!data) return json({ error: 'daily limit reached', code: 'daily_limit' }, 429);
-    let result: { actions: { type: string }[] };
+    let result: { message: string; actions: ProposedAction[] };
     try {
-      result = await provider.respond(parsed.data.message, parsed.data.context, parsed.data.history ?? []) as { actions: { type: string }[] };
+      const revision = goalId ? await loadRevision(client, user.id, goalId) : null;
+      if (goalId && !revision) {
+        await refundRequest(user.id);
+        return json({ code: 'goal_unavailable' }, 404);
+      }
+      result = await provider.respond(parsed.data.message, revision ? { ...ctx, revision } : ctx, parsed.data.history ?? []) as typeof result;
+      if (goalId && !result.actions.length) await refundRequest(user.id);
       recordAttempts(attempts);
     } catch (e) {
       recordAttempts(attempts);
@@ -74,15 +85,17 @@ Deno.serve(async (req) => {
         ? { error: 'all models busy', code: 'models_busy', fallback: 'captura' }
         : { error: 'all models rejected the request', code: 'models_error', fallback: 'captura' }, 503);
     }
-    // Los enlaces de estudio se comprueban aquí: el cliente solo ve los que responden.
-    await verifyPlanLinks(result);
     // Prioridades y longitudes dentro de los límites de la base de datos (si no, «aplicar» falla).
     normalizeActions(result.actions);
     // Las fechas del plan se ajustan a la semana real de la persona (días activos y carga).
-    const ctx = parsed.data.context;
     if ('now' in ctx) {
       for (const a of result.actions) {
-        if (a.type === 'create_plan') schedulePlan(a as unknown as SchedulePlan, { today: ctx.now.day, activeDays: ctx.person.activeDays, busy: busyFromTasks(ctx.tasks) });
+        if (a.type !== 'create_plan') continue;
+        const revisedTasks = new Set(a.tasks.map((t) => t.replaceId));
+        schedulePlan(a, { today: ctx.now.day, activeDays: ctx.person.activeDays, busy: busyFromTasks(ctx.tasks.filter((t) => !revisedTasks.has(t.id))) });
+        if (![a, ...a.tasks, ...a.habits].some((part) => part.resources.length)) {
+          result.message = `${result.message.slice(0, 3800)}\n\nLa búsqueda no aportó fuentes verificables para esta propuesta.`;
+        }
       }
     }
     return json(parsed.data.client ? result : toLegacyResponse(result as { message: string; actions: { type: string }[] }));

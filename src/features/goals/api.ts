@@ -11,6 +11,7 @@ export interface Goal {
   title: string;
   description: string | null;
   expectedOutcome: string | null;
+  aiPlanSummary?: string | null;
   targetDate: DayKey | null;
   metric: GoalMetric;
   metricTarget: number | null;
@@ -35,6 +36,7 @@ const map = (r: Row): Goal => ({
   title: r.title as string,
   description: (r.description as string) ?? null,
   expectedOutcome: (r.expected_outcome as string) ?? null,
+  aiPlanSummary: (r.ai_plan_summary as string) ?? null,
   targetDate: (r.target_date as DayKey) ?? null,
   metric: r.metric as GoalMetric,
   metricTarget: r.metric_target === null ? null : Number(r.metric_target),

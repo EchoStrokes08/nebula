@@ -1,3 +1,4 @@
+import { db, unwrap } from '@/data/db';
 import { queryClient } from '@/data/queryClient';
 import { supabase } from '@/data/supabase';
 import { dbPriority, milestoneOf, planSchema, type PlanAction, type PlanResource } from '@/domain/capture/actions';
@@ -46,6 +47,29 @@ export function planSteps(proposal: PlanAction, pick: PlanPick, tz: string): Pla
   const plan = planSchema.parse(proposal);
   const today = dayKeyOf(new Date(), tz);
   const milestones = pick.milestones ? plan.milestones.map(milestoneOf) : [];
+  if (plan.revisionId && plan.revisionVersion && plan.goalId) {
+    return [{
+      key: 'revision',
+      label: 'Guardar el rediseño',
+      run: async (state) => {
+        unwrap(await db().rpc('revise_goal_plan', {
+          p_goal: plan.goalId,
+          p_revision: plan.revisionId,
+          p_version: plan.revisionVersion,
+          p_today: today,
+          p_summary: studyNotes(plan.why, plan.resources, 5000),
+          p_milestones: milestones,
+          p_tasks: plan.tasks.flatMap((task, index) => pick.tasks.includes(index) ? [{
+            ...task, index, priority: dbPriority(task.priority), notes: studyNotes(task.study, task.resources, 5000, task.done),
+          }] : []),
+          p_habits: plan.habits.flatMap((habit, index) => pick.habits.includes(index) ? [{
+            ...habit, days: habit.days.length === 7 ? [] : habit.days, notes: studyNotes(habit.study, habit.resources, 500),
+          }] : []),
+        }));
+        state.goalId = plan.goalId;
+      },
+    }];
+  }
   const steps: PlanStep[] = [{
     key: 'goal',
     label: plan.goalId ? `Actualizar la meta «${plan.goal}»` : `Crear la meta «${plan.goal}»`,

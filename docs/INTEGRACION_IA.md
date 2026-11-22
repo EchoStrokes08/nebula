@@ -63,22 +63,26 @@ horaria del perfil y ofrece vista previa editable mediante el texto de captura.
 
 Cuando la persona no sabe cómo conseguir algo («No sé cómo lograr una meta» en el asistente, o
 **Plan con IA** en el detalle de una meta), el modelo devuelve una acción `create_plan`: meta nueva
-o existente (`goalId` de `context.goals`), hitos, tareas con fecha y «qué estudiar», hábitos en sus
-días activos y recursos web. `ai-assist` comprueba cada enlace (`links.ts`: solo https público, sin IPs
-ni hosts internos; descarta 404/410/5xx y los que no resuelven) antes de responder.
+o existente, hitos medibles, tareas con práctica guiada, dependencias y criterios para comprobar su
+resultado. El servidor rechaza propuestas incompletas y prueba el siguiente modelo. El calendario
+ajusta las tareas a los días activos y a los compromisos pendientes.
 
-La tarjeta permite desmarcar partes y aplica por pasos reanudables (un reintento no duplica). Las
-tareas guardan lo que estudiar y los enlaces en sus notas; los hábitos, en su descripción (≤500), y
-quedan vinculados a la meta. Notas y descripciones muestran los enlaces pulsables.
+Para las fuentes, `ai-assist` usa [Browser Search de Groq](https://console.groq.com/docs/tool-use/built-in-tools/browser-search)
+antes de redactar el plan. Envía el objetivo de búsqueda y prioriza documentación oficial, instituciones
+y material abierto con ejercicios. Solo conserva referencias que coincidan con el contenido devuelto
+por la herramienta. Si la búsqueda no aporta fuentes utilizables, el asistente lo indica.
 
-**Aplicar automáticamente** (interruptor del asistente, por sesión) crea al momento tareas, hábitos,
-metas, eventos y planes. Mover, estimar o priorizar tareas existentes siempre pide confirmación.
+En una meta con un plan existente, **Rediseñar plan con IA** abre una propuesta que tiene en cuenta
+sus hitos, tareas y hábitos. La persona elige qué aplicar. Se actualizan los pendientes seleccionados
+y se conserva el avance registrado. El guardado se hace en una transacción que detecta cambios
+posteriores a la propuesta. **Aplicar automáticamente** sigue disponible para las creaciones del
+asistente. Los rediseños requieren confirmación.
 
 ## Cambiar de proveedor
 
 La cadena tiene cuatro proveedores gratuitos; este es su orden de preferencia:
 
-1. **Groq** (`AI_*`): `openai/gpt-oss-120b` con `AI_REASONING_EFFORT=low` (plan completo en ~6 s) y
+1. **Groq** (`AI_*`): `openai/gpt-oss-120b` con `AI_REASONING_EFFORT=low` para el chat y esfuerzo medio para planes. Tiene como
    alternativos `qwen/qwen3.8-27b` y `openai/gpt-oss-20b` (`AI_ALTERNATE_MODELS`). Gratis: 8000
    tokens/min.
 2. **OpenRouter** (`AI_FALLBACK_*`, `AI_FALLBACK_PROVIDER=openrouter`): modelos `:free`,
@@ -113,8 +117,9 @@ La URL del proyecto y el secreto del cron viven en Vault (`nebula_project_url` y
 
 Cada uno admite `*_ALTERNATE_MODELS`. `AI_TIMEOUT_MS`, `AI_MAX_TOKENS`, `AI_DEADLINE_MS` y
 `AI_CONNECT_TIMEOUT_MS` son opcionales. `node --experimental-strip-types scripts/test-plan.mjs
-[--proveedor AI_FALLBACK_] "<meta>"` prueba un plan real con un solo proveedor y comprueba sus enlaces
-sin escribir datos.
+[--proveedor AI_FALLBACK_] "<meta>"` prueba un plan real sin escribir datos. Si el proceso recibe `GROQ_TEST_API_KEY`, usa
+solo esa clave de pruebas. En producción la búsqueda usa la clave Groq de los proveedores configurados
+o el secreto opcional `AI_RESEARCH_GROQ_API_KEY`.
 
 Si todos fallan, la función responde con un `code` que la app traduce: `models_busy`, `models_error`
 (claves o modelos mal configurados), `not_configured`, `daily_limit`, `ai_disabled`, `unauthorized`,
@@ -122,7 +127,7 @@ Si todos fallan, la función responde con un `code` que la app traduce: `models_
 
 `groq`, `google`, `openrouter`, `nvidia` y `cloudflare` usan Chat Completions compatible. `AI_PROVIDER=openai` usa Responses con
 `store=false`. `AI_BASE_URL`, `AI_MODEL` y `AI_API_KEY` son secretos del servidor. El endpoint
-requiere HTTPS y el timeout es de 25 segundos. No hay ejecución de código del modelo.
+requiere HTTPS. No hay ejecución de código del modelo.
 
 Referencias: [compatibilidad Groq](https://console.groq.com/docs/openai),
 [modelos Groq](https://console.groq.com/docs/models),

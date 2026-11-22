@@ -31,6 +31,7 @@ function TaskDetail({ task: t, plan, dayLabel }: { task: PlanTask; plan: PlanAct
   return (
     <>
       <Text variant="bodyStrong">{t.title}</Text>
+      {plan.revisionId ? <Text variant="caption" tone="accent">{t.originalTitle ? `Actualiza «${t.originalTitle}»` : 'Tarea nueva'}</Text> : null}
       <Text variant="caption" tone="tertiary">{[t.day ? dayLabel(t.day) : null, t.minutes ? `${t.minutes} min` : null].filter(Boolean).join(' · ') || 'Sin fecha'}</Text>
       {t.study ? <Text variant="callout" tone="secondary">{t.study}</Text> : null}
       {t.steps.length ? <View style={styles.steps}>{t.steps.map((st, k) => <Text key={k} variant="callout" tone="secondary">{k + 1}. {st}</Text>)}</View> : null}
@@ -96,28 +97,29 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
       // Los errores de Supabase no son `Error`: se muestra su mensaje y en qué paso falló.
       const detail = applyErrorText(e);
       console.warn('No se pudo aplicar el plan', current, e);
-      setError(`No se pudo aplicar${current ? ` (${current})` : ''}${detail ? `: ${detail}` : '.'} Lo ya creado se conserva; reintenta para completar el resto.`);
+      setError(plan.revisionId ? `No se guardó el rediseño${detail ? `: ${detail}` : '.'}` : `No se pudo aplicar${current ? ` (${current})` : ''}${detail ? `: ${detail}` : '.'} Lo ya creado se conserva; reintenta para completar el resto.`);
       setState('preview');
     } finally { setProgress(''); running.current = false; }
   };
   // Con «Aplicar automáticamente» se crea todo el plan al aparecer la tarjeta.
-  useEffect(() => { if (!autoApply) return; const t = setTimeout(() => void apply(), 0); return () => clearTimeout(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!autoApply || plan.revisionId) return; const t = setTimeout(() => void apply(), 0); return () => clearTimeout(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={styles.root}>
       <View style={styles.head}>
         <Flag size={18} color={colors.success} />
-        <Text variant="overline" tone="success">{plan.goalId ? 'PLAN PARA TU META' : 'PLAN PARA UNA META NUEVA'}</Text>
+        <Text variant="overline" tone="success">{plan.revisionId ? 'PROPUESTA DE REDISEÑO' : plan.goalId ? 'PLAN PARA TU META' : 'PLAN PARA UNA META NUEVA'}</Text>
       </View>
       <Text variant="title3">{plan.goal}</Text>
-      {plan.day ? <Text variant="caption" tone="tertiary">Objetivo: {day(plan.day)}</Text> : null}
+      {plan.revisionId ? <Text variant="callout" tone="secondary">Puedes elegir qué partes aplicar. Se conserva el avance registrado y lo que quede fuera de la selección.</Text> : null}
+      {plan.day ? <Text variant="caption" tone="tertiary">{plan.revisionId ? 'Fin previsto' : 'Objetivo'}: {day(plan.day)}</Text> : null}
       {plan.why ? <Text variant="callout" tone="secondary">{plan.why}</Text> : null}
 
       {plan.milestones.length ? (
         <View style={styles.section}>
           <Toggle on={pick.milestones} disabled={locked} label="Incluir los hitos" onPress={() => setPick((p) => ({ ...p, milestones: !p.milestones }))}>
             <Text variant="bodyStrong">Hitos ({plan.milestones.length})</Text>
-            {milestones.map((m, i) => <Text key={i} variant="callout" tone="secondary">{i + 1}. {m.title}{m.day ? ` · ${day(m.day)}` : ''}</Text>)}
+            {milestones.map((m, i) => <Text key={i} variant="callout" tone="secondary">{i + 1}. {m.title}{m.day ? ` · ${day(m.day)}` : ''}{plan.revisionId ? (m.originalTitle ? ` · Actualiza «${m.originalTitle}»` : ' · Hito nuevo') : ''}</Text>)}
           </Toggle>
         </View>
       ) : null}
@@ -148,7 +150,8 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
           {plan.habits.map((h, i) => (
             <Toggle key={i} on={pick.habits.includes(i)} disabled={locked} label={`Incluir hábito ${h.title}`} onPress={() => toggle('habits', i)}>
               <Text variant="bodyStrong">{h.title}</Text>
-              <Text variant="caption" tone="tertiary">{[h.minutes ? `${h.minutes} min` : 'una vez', daysLabel(h.days), h.time].filter(Boolean).join(' · ')}</Text>
+              {plan.revisionId ? <Text variant="caption" tone="accent">{h.originalTitle ? `Actualiza la rutina de «${h.originalTitle}»` : 'Hábito nuevo'}</Text> : null}
+              {!h.originalTitle ? <Text variant="caption" tone="tertiary">{[h.minutes ? `${h.minutes} min` : 'una vez', daysLabel(h.days), h.time].filter(Boolean).join(' · ')}</Text> : null}
               {h.study ? <Text variant="callout" tone="secondary">{h.study}</Text> : null}
               <Resources list={h.resources} />
             </Toggle>
@@ -171,18 +174,18 @@ export function PlanCard({ plan: proposal, autoApply = false }: { plan: PlanActi
       ) : null}
       <View style={styles.head}>
         <BookOpen size={14} color={colors.textTertiary} />
-        <Text variant="caption" tone="tertiary" style={styles.flex}>Los enlaces se han comprobado al generarlos. Los pasos se guardan como subtareas; lo que estudiar, el criterio de terminado y los recursos, en las notas de cada tarea y hábito.</Text>
+        <Text variant="caption" tone="tertiary" style={styles.flex}>Los pasos se guardan como subtareas. La práctica, el criterio de terminado y los recursos quedan en las notas.</Text>
       </View>
 
       {state === 'done' ? (
         <>
-          <Text tone="success">Plan aplicado.</Text>
+          <Text tone="success">{plan.revisionId ? "Rediseño guardado." : "Plan aplicado."}</Text>
           {goalId ? <Button label="Ver la meta" variant="secondary" onPress={() => router.push({ pathname: '/meta/[id]', params: { id: goalId } })} /> : null}
         </>
       ) : state === 'dismissed' ? <Text tone="secondary">Descartado.</Text> : (
         <>
           {progress ? <Text variant="caption" tone="secondary" accessibilityLiveRegion="polite">{progress}…</Text> : null}
-          <Button label={`Confirmar y aplicar (${count})`} loading={state === 'saving'} onPress={() => void apply()} />
+          <Button label={plan.revisionId ? "Guardar rediseño" : `Confirmar y aplicar (${count})`} loading={state === 'saving'} onPress={() => void apply()} />
           <Button label="Descartar" variant="ghost" disabled={state === 'saving'} onPress={() => setState('dismissed')} />
         </>
       )}

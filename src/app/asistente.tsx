@@ -85,12 +85,13 @@ function Personalize() {
 }
 
 export default function Asistente() {
-  const params = useLocalSearchParams<{ meta?: string }>();
+  const params = useLocalSearchParams<{ meta?: string; metaId?: string }>();
   const ctx = useAssistantContext();
   const data = useHabitsData();
   const today = useToday();
   const reduced = useReducedMotion();
   const goalParam = typeof params.meta === 'string' ? params.meta : '';
+  const reviseGoal = typeof params.metaId === 'string' ? params.metaId : undefined;
   const [request, setRequest] = useState(() => (goalParam ? planPromptFor(goalParam) : ''));
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [busy, setBusy] = useState(false);
@@ -117,7 +118,7 @@ export default function Asistente() {
     const text = message.trim();
     if (!text || busy) return;
     // Órdenes concretas: se resuelven en el dispositivo, al momento y sin consultar a la IA.
-    const command = matchCommand(text);
+    const command = reviseGoal ? null : matchCommand(text);
     if (command) {
       const reply = command.kind === 'carry_over' ? 'Esto es lo que quedó pendiente. Lo paso a mañana cuando me digas.' : 'Te preparo el resto del día con tus huecos libres.';
       setConversation((c) => [...c, { request: text, response: { message: reply, actions: [] }, command }]);
@@ -134,9 +135,9 @@ export default function Asistente() {
         { role: 'assistant' as const, text: t.response.message.slice(0, 2000) },
       ]);
       const ask = async () => {
-        let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history, client: { version: appVersion(), platform: Platform.OS === 'web' && getDesktopBridge() ? 'desktop' : Platform.OS } } });
+        let r = await db().functions.invoke('ai-assist', { body: { message: text, context, history, ...(reviseGoal && { reviseGoal }), client: { version: appVersion(), platform: Platform.OS === 'web' && getDesktopBridge() ? 'desktop' : Platform.OS } } });
         // Servidor aún sin desplegar la versión con contexto completo: reintenta con el resumen antiguo.
-        if (r.error && (r.error as { context?: { status?: number } }).context?.status === 400) {
+        if (!reviseGoal && r.error && (r.error as { context?: { status?: number } }).context?.status === 400) {
           const legacy = { from: context.week.from, to: context.week.to, tasksCompleted: context.week.tasksCompleted, habitRecords: context.week.habitRecords, activeDays: context.week.activeDays };
           r = await db().functions.invoke('ai-assist', { body: { message: text, context: legacy } });
         }
@@ -193,7 +194,7 @@ export default function Asistente() {
         </Pressable>
         {showShared ? (
           <Text variant="caption" tone="secondary">
-            Al enviar, se comparten tu petición, las últimas respuestas y un resumen de tu actividad: nombre de pila, «Sobre mí», preferencias, hábitos con rachas, tareas abiertas, metas, eventos de los próximos 7 días, retos propios{ctx.prefs.data?.aiShareJournal ? ', entradas recientes del diario' : ''} y estadísticas de la semana. Nunca datos de amigos, emails ni tokens. Nada se guarda en Nebula y las propuestas no se aplican sin tu confirmación.
+            Al enviar, se comparten tu petición, las últimas respuestas y un resumen de tu actividad: nombre de pila, «Sobre mí», preferencias, hábitos con rachas, tareas abiertas, metas, eventos de los próximos 7 días, retos propios{ctx.prefs.data?.aiShareJournal ? ', entradas recientes del diario' : ''} y estadísticas de la semana. Nunca datos de amigos, emails ni tokens. Al rediseñar, también se comparten los hitos, tareas y hábitos de esa meta. Nada se guarda en Nebula y las propuestas no se aplican sin tu confirmación.
           </Text>
         ) : null}
       </LinearGradient>
@@ -206,7 +207,13 @@ export default function Asistente() {
         </Card>
       ) : (
         <>
-          {conversation.length === 0 ? (
+          {reviseGoal ? (
+            <Card compact>
+              <Text variant="bodyStrong">{goalParam || 'Plan de la meta'}</Text>
+              <Text variant="callout" tone="secondary">Puedes indicar tu nivel actual, qué te gustaría mejorar y cuánto tiempo tienes por semana. Revisarás los cambios antes de guardarlos.</Text>
+            </Card>
+          ) : null}
+          {!reviseGoal && conversation.length === 0 ? (
             <View style={styles.suggestions}>
               <Pressable
                 onPress={() => { setRequest(PLAN_TEMPLATE); setTimeout(() => input.current?.focus(), 0); }}
@@ -245,7 +252,7 @@ export default function Asistente() {
           {busy ? (
             <View style={styles.botRow}>
               <Orb size={30} />
-              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{retrying || (looksLikePlanRequest(request) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…')}</Text></View>
+              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{retrying || ((reviseGoal || looksLikePlanRequest(request)) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…')}</Text></View>
             </View>
           ) : null}
           {error ? <Text tone="warning" accessibilityLiveRegion="polite">{error}</Text> : null}
@@ -270,7 +277,7 @@ export default function Asistente() {
               <Send size={18} color="#fff" />
             </Pressable>
           </View>
-          <Switch label="Aplicar automáticamente" description="Nebula crea al momento las tareas, hábitos, metas y planes que proponga. Mover o cambiar tareas existentes sigue pidiendo confirmación." value={autoApply} onChange={setAutoApply} />
+          {!reviseGoal ? <Switch label="Aplicar automáticamente" description="Nebula crea al momento las tareas, hábitos, metas y planes que proponga. Mover o cambiar tareas existentes sigue pidiendo confirmación." value={autoApply} onChange={setAutoApply} /> : null}
           {conversation.length ? <Button label="Nueva conversación" variant="ghost" onPress={() => { setConversation([]); setError(''); }} /> : null}
         </>
       )}

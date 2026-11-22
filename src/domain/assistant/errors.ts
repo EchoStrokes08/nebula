@@ -16,6 +16,7 @@ const MESSAGES = {
   not_configured: 'El asistente de IA no está configurado en el servidor. Mientras tanto puedes usar la captura rápida.',
   ai_disabled: 'El asistente de IA está desactivado para tu cuenta. Actívalo en Ajustes para usarlo.',
   unauthorized: 'Tu sesión ha caducado. Vuelve a iniciar sesión y reintenta.',
+  goal_unavailable: 'Esa meta ya no está disponible para rediseñar.',
   invalid_request: 'El servidor no ha entendido la consulta. Actualiza la app y reintenta.',
   internal: 'El servidor del asistente ha tenido un error interno. Reintenta en un momento o usa la captura rápida.',
   unknown: 'El asistente no está disponible ahora mismo. Reintenta en un momento o usa la captura rápida.',

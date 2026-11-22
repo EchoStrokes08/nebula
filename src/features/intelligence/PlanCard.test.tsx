@@ -41,3 +41,19 @@ it('con aplicar automáticamente crea el plan completo al aparecer', async () =>
   await waitFor(() => expect(view.getByText('Plan aplicado.')).toBeTruthy());
   expect(step).toHaveBeenCalledTimes(1);
 });
+
+it('muestra lo que se actualizará y exige confirmar un rediseño aunque el autoaplicado esté habilitado', async () => {
+  const step = jest.fn().mockResolvedValue(undefined);
+  jest.mocked(planSteps).mockReturnValue([{ key: 'revision', label: 'Guardar rediseño', run: step }]);
+  const revision = {
+    ...plan,
+    revisionId: 'bc913348-c57a-4268-8441-283d9debfc1a',
+    tasks: [{ ...plan.tasks[0]!, originalTitle: 'Preparar el entorno' }],
+  };
+  const view = await render(<PlanCard plan={revision} autoApply />);
+  expect(view.getByText('Actualiza «Preparar el entorno»')).toBeTruthy();
+  expect(step).not.toHaveBeenCalled();
+  await fireEvent.press(view.getByRole('button', { name: 'Guardar rediseño' }));
+  await waitFor(() => expect(view.getByText('Rediseño guardado.')).toBeTruthy());
+  expect(step).toHaveBeenCalledTimes(1);
+});

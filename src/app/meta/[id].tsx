@@ -72,6 +72,7 @@ export default function MetaDetalle() {
     linkedTasks.flatMap((t) => t.dependsOn.map((d) => ({ taskId: t.id, dependsOn: d }))),
   );
   const hasEdges = linkedTasks.some((t) => t.dependsOn.length);
+  const hasPlan = Boolean(goal.aiPlanSummary || goal.milestones.length || linkedTasks.length || linkedHabits.length);
   const closed = goal.status === 'completed' || goal.status === 'abandoned';
 
   const submitDelta = () => {
@@ -121,10 +122,17 @@ export default function MetaDetalle() {
 
       <View style={styles.actions}>
         {goal.metric === 'quantity' && !closed ? <Button label="Registrar avance" icon={<Plus size={18} color={colors.textOnAccent} />} onPress={() => setProgressSheet(true)} /> : null}
-        {!closed ? <Button label="Plan con IA" variant="secondary" icon={<GraduationCap size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/asistente', params: { meta: goal.title } })} /> : null}
+        {!closed ? <Button label={hasPlan ? "Rediseñar plan con IA" : "Plan con IA"} variant="secondary" icon={<GraduationCap size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/asistente', params: { meta: goal.title, metaId: goal.id } })} /> : null}
         <Button label="Simular" variant="secondary" icon={<Calculator size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/simulador', params: { meta: goal.id } })} />
         <Button label="Editar" variant="secondary" icon={<Pencil size={18} color={colors.text} />} onPress={() => router.push({ pathname: '/meta/editar/[id]', params: { id: goal.id } })} />
       </View>
+
+      {goal.aiPlanSummary ? (
+        <View style={styles.card}>
+          <Text variant="title3">Plan con IA</Text>
+          <LinkifiedText>{goal.aiPlanSummary}</LinkifiedText>
+        </View>
+      ) : null}
 
       {goal.metric === 'milestones' || goal.milestones.length ? (
         <View style={styles.card}>

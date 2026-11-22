@@ -14,12 +14,19 @@ export const resourceSchema = z.object({ title: z.string().trim().min(1).max(120
 export type PlanResource = z.infer<typeof resourceSchema>;
 const study = z.string().trim().max(1000).nullable();
 const resources = z.array(resourceSchema).max(6);
+/** Las referencias propuestas por el modelo se contrastan con la meta y se completan en el servidor. */
+const replacement = {
+  replaceId: z.uuid().optional(),
+  originalTitle: z.string().max(200).optional(),
+  originalVersion: z.string().max(48).optional(),
+};
 /** Hito con fecha orientativa; se aceptan también textos sueltos (formato anterior). */
-export const milestoneSchema = z.union([title.max(120), z.object({ title: title.max(120), day: day.nullable() }).strict()]);
-export type PlanMilestone = { title: string; day: string | null };
+export const milestoneSchema = z.union([title.max(120), z.object({ title: title.max(120), day: day.nullable(), ...replacement }).strict()]);
+export type PlanMilestone = Exclude<z.infer<typeof milestoneSchema>, string>;
 export const milestoneOf = (m: z.infer<typeof milestoneSchema>): PlanMilestone => (typeof m === 'string' ? { title: m, day: null } : m);
 export const PLAN_LIMITS = { milestones: 12, tasks: 24, habits: 6, resources: 15, steps: 8 } as const;
 export const planTaskSchema = z.object({
+  ...replacement,
   title,
   day: day.nullable(),
   minutes: minutes.nullable(),
@@ -40,12 +47,14 @@ export const planSchema = z.object({
   type: z.literal('create_plan'),
   /** Meta existente (id de context.goals) o null para crear una nueva con `goal`. */
   goalId: z.uuid().nullable(),
+  revisionId: z.uuid().optional(),
+  revisionVersion: z.string().max(48).optional(),
   goal: title.max(120),
   why: z.string().trim().max(1000).nullable(),
   day: day.nullable(),
   milestones: z.array(milestoneSchema).max(PLAN_LIMITS.milestones),
   tasks: z.array(planTaskSchema).max(PLAN_LIMITS.tasks),
-  habits: z.array(z.object({ title: title.max(80), minutes: minutes.nullable(), days: weekdays, time: time.nullable(), study, resources }).strict()).max(PLAN_LIMITS.habits),
+  habits: z.array(z.object({ ...replacement, title: title.max(80), minutes: minutes.nullable(), days: weekdays, time: time.nullable(), study, resources }).strict()).max(PLAN_LIMITS.habits),
   resources: z.array(resourceSchema).max(PLAN_LIMITS.resources),
   /** Ajustes que hizo la app al calendario (los rellena el servidor, no el modelo). */
   adjustments: z.array(z.string().max(300)).max(10).default([]),

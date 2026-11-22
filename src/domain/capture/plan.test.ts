@@ -40,9 +40,9 @@ describe('proveedor', () => {
     const system = JSON.parse(send.mock.calls[0]![1].body).messages[0].content as string;
     expect(system).toMatch(/create_plan/);
     expect(system).toMatch(/NUNCA inventes URLs/);
-    // Planes detallados: pasos, criterio de terminado, dependencias y muchos recursos.
+    // Las referencias proceden del catálogo de investigación.
     expect(system).toMatch(/steps/);
-    expect(system).toMatch(/8-15 recursos/);
+    expect(system).toMatch(/catálogo de fuentes/);
     // El esquema que ve el modelo es el de entrada: los campos nuevos son opcionales.
     expect(system).toContain('"steps"');
   });
