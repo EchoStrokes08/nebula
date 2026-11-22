@@ -106,6 +106,14 @@ describe('widgets complementarios', () => {
     expect(r.month.total).toBe(31); // 30 días de noviembre + la tarea
   });
 
+  it('widgetOrbits: el anillo del día avanza con los hábitos a medias', () => {
+    const s = snap([habit('leer', 'duration', { target: 30 }), habit('agua', 'binary')], [log('leer', '2026-11-18', 15)]);
+    const r = widgetOrbits(s, NOW);
+    expect(r.day).toMatchObject({ done: 0, total: 2 });
+    expect(r.day.progress).toBeCloseTo(0.25);
+    expect(r.week.done).toBeCloseTo(0.5);
+  });
+
   it('widgetHeatmap: semanas completas, futuro sin pintar y sin hábitos = null', () => {
     const s = snap([habit('leer', 'binary'), habit('agua', 'binary')], [log('leer', '2026-11-16'), log('agua', '2026-11-16'), log('leer', '2026-11-17')]);
     const { days } = widgetHeatmap(s, NOW, 3);

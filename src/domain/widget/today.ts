@@ -1,6 +1,6 @@
 import { evaluatePeriod, recentPeriods, streaks, targetAt } from '@/domain/habits/evaluate';
 import type { HabitDef, PeriodResult } from '@/domain/habits/types';
-import { periodOrbit, type OrbitTask, type PeriodOrbit } from '@/domain/stats/orbits';
+import { dayOrbit, periodOrbit, type OrbitTask, type PeriodOrbit } from '@/domain/stats/orbits';
 import { addDays, dayKeyOf, diffDays, startOfWeek, type DayKey } from '@/lib/dates';
 
 /**
@@ -125,11 +125,11 @@ export function trimLogs<T extends { dayKey: DayKey }>(logs: T[], today: DayKey)
 
 /** Órbitas para el widget «Órbita»: día (hábitos de hoy), semana y mes, y la mejor racha. */
 export function widgetOrbits(s: WidgetSnapshot, now: Date): { today: DayKey; day: { done: number; total: number; progress: number }; week: PeriodOrbit; month: PeriodOrbit; streak: number } {
-  const { today, items, done } = widgetItems(s, now);
+  const { today, items } = widgetItems(s, now);
   const logsFor = (id: string) => s.logs.filter((l) => l.habitId === id);
   return {
     today,
-    day: { done, total: items.length, progress: items.length ? done / items.length : 0 },
+    day: dayOrbit(s.habits.map((h) => ({ habit: h, result: evaluatePeriod(h, logsFor(h.id), today, today, s.weekStartsOn) }))),
     week: periodOrbit(s.habits, logsFor, s.tasks ?? [], 'week', today, s.weekStartsOn),
     month: periodOrbit(s.habits, logsFor, s.tasks ?? [], 'month', today, s.weekStartsOn),
     streak: Math.max(0, ...items.map((i) => i.streak)),

@@ -5,7 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { GlassCard } from '@/components/primitives/GlassCard';
 import { TodayOrbit, type OrbitView } from '@/features/home/TodayOrbit';
-import { periodOrbit, type PeriodOrbit } from '@/domain/stats/orbits';
+import { dayOrbit, periodOrbit, type PeriodOrbit } from '@/domain/stats/orbits';
 import { useMemo } from 'react';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { GoalsShortcut } from '@/features/goals/GoalsShortcut';
@@ -47,6 +47,9 @@ function paceText(o: PeriodOrbit) {
   return o.pace > 0 ? `vas ${n} por delante` : `vas ${n} por detrás del ritmo`;
 }
 
+/** Unidades con el progreso parcial a la vista: «2», «2,5». */
+const formatUnits = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace('.', ','));
+
 function periodView(o: PeriodOrbit, key: 'week' | 'month'): OrbitView {
   const word = key === 'week' ? 'semana' : 'mes';
   const left = o.daysLeft === 1 ? (key === 'week' ? 'último día de la semana' : 'último día del mes') : `quedan ${o.daysLeft} días`;
@@ -60,7 +63,7 @@ function periodView(o: PeriodOrbit, key: 'week' | 'month'): OrbitView {
     headline: o.total === 0 ? `Nada planificado este ${word}` : o.remaining === 0 ? (key === 'week' ? '¡Semana completada!' : '¡Mes completado!') : `Faltan ${o.remaining} de ${o.total}`,
     caption: o.total === 0 ? 'Crea hábitos o pon fecha a tus tareas.' : `entre hábitos y tareas · ${left} · ${paceText(o)}`,
     stats: [
-      { label: 'Hábitos', value: `${Math.floor(o.habits.done)}/${o.habits.total}`, href: '/habitos' },
+      { label: 'Hábitos', value: `${formatUnits(o.habits.done)}/${o.habits.total}`, href: '/habitos' },
       { label: 'Tareas', value: `${o.tasks.done}/${o.tasks.total}`, href: '/agenda' },
       { label: o.daysLeft === 1 ? 'Día restante' : 'Días restantes', value: String(o.daysLeft) },
     ],
@@ -127,7 +130,7 @@ export default function HoyScreen() {
                 tab: 'Hoy',
                 eyebrow: 'TU ÓRBITA DE HOY',
                 unit: 'del día',
-                progress: forToday.length ? done / forToday.length : 0,
+                progress: dayOrbit(forToday.map((s) => ({ habit: s.habit, result: s.current }))).progress,
                 headline: pending.length === 0 && forToday.length ? '¡Día completado!' : pending.length === 1 ? 'Te queda 1 hábito' : forToday.length ? `Te quedan ${pending.length} hábitos` : 'Sin hábitos para hoy',
                 caption: todayTasks.length ? `y ${todayTasks.length} ${todayTasks.length === 1 ? 'tarea' : 'tareas'} en tu agenda` : 'Lo importante de tu día, de un vistazo.',
                 stats: [

@@ -44,7 +44,7 @@ export function orbitWindow(scope: OrbitScope, today: DayKey, weekStartsOn: numb
 }
 
 /** Crédito de un periodo: 1 si se cumplió; si no, su progreso (la reducción solo cuenta al cerrarse). */
-function credit(habit: HabitDef, r: PeriodResult): number {
+export function periodCredit(habit: HabitDef, r: PeriodResult): number {
   if (r.status === 'met') return 1;
   if (habit.kind === 'reduction') return 0;
   return r.status === 'unknown' ? 0 : Math.max(0, Math.min(1, r.progress));
@@ -68,7 +68,7 @@ export function periodOrbit(
       const r = evaluatePeriod(habit, logs, cursor, today, weekStartsOn);
       if (!SKIP.has(r.status)) {
         h.total += 1;
-        h.done += credit(habit, r);
+        h.done += periodCredit(habit, r);
       }
       // Un periodo semanal que empezó en el mes anterior también cuenta (una vez).
       cursor = addDays(r.end, 1);
@@ -99,6 +99,23 @@ export function periodOrbit(
     elapsed,
     pace: done - total * elapsed,
   };
+}
+
+/**
+ * Órbita del día: los hábitos que tocan hoy, cada uno con su progreso parcial (15 de 30 min
+ * suma medio hábito), no solo los ya cumplidos. `done` cuenta los cumplidos enteros.
+ */
+export function dayOrbit(current: { habit: HabitDef; result: PeriodResult }[]): { done: number; total: number; progress: number } {
+  let done = 0;
+  let total = 0;
+  let sum = 0;
+  for (const { habit, result } of current) {
+    if (habit.archived || SKIP.has(result.status)) continue;
+    total += 1;
+    if (result.status === 'met') done += 1;
+    sum += periodCredit(habit, result);
+  }
+  return { done, total, progress: total ? sum / total : 0 };
 }
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
