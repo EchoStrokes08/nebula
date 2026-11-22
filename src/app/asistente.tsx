@@ -26,6 +26,7 @@ import { setTarget } from '@/features/habits/api';
 import { useHabitMutation, useHabitsData } from '@/features/habits/hooks';
 import { useToday } from '@/features/habits/useToday';
 import { ActionCard } from '@/features/intelligence/ActionCard';
+import { AssistantProgress } from '@/features/intelligence/AssistantProgress';
 import { CommandCard } from '@/features/intelligence/CommandCard';
 import { matchCommand, type AssistantCommand } from '@/domain/assistant/commands';
 import { appVersion } from '@/features/system/update';
@@ -252,7 +253,7 @@ export default function Asistente() {
           {busy ? (
             <View style={styles.botRow}>
               <Orb size={30} />
-              <View style={[styles.botBubble, glassBlur]}><Text tone="secondary">{retrying || ((reviseGoal || looksLikePlanRequest(request)) ? 'Preparando tu plan y comprobando enlaces…' : 'Pensando con tus datos…')}</Text></View>
+              <View style={[styles.botBubble, glassBlur]}><AssistantProgress kind={reviseGoal || looksLikePlanRequest(request) ? 'plan' : 'chat'} notice={retrying} /></View>
             </View>
           ) : null}
           {error ? <Text tone="warning" accessibilityLiveRegion="polite">{error}</Text> : null}
