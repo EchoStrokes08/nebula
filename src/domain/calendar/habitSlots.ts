@@ -9,14 +9,25 @@ export interface AvailabilitySlot { day: DayKey; start: number; end: number }
 /**
  * Hábitos diarios en la agenda: cada día que tocan (según sus días programados, sin pausas ni
  * archivados). Con hora de recordatorio se colocan a esa hora (duración del objetivo si es de
- * minutos, 30 min si no); sin hora aparecen como «todo el día».
+ * minutos, 30 min si no); sin hora aparecen como «todo el día». Un bloque aceptado en Planificar
+ * (`planned`, por día y hábito) manda sobre todo lo anterior ese día, también para semanales.
  */
-export function habitSlots(habits: (HabitDef & { reminderTime?: string | null })[], from: DayKey, to: DayKey): HabitSlot[] {
+export function habitSlots(
+  habits: (HabitDef & { reminderTime?: string | null })[],
+  from: DayKey,
+  to: DayKey,
+  planned: Record<string, Record<string, { start: number; end: number }>> = {},
+): HabitSlot[] {
   const out: HabitSlot[] = [];
   for (const h of habits) {
     if (h.archived) continue;
     for (const day of dayRange(from, to)) {
       if (day < h.startDay || isPaused(h, day)) continue;
+      const block = planned[day]?.[h.id];
+      if (block) {
+        out.push({ id: h.id, name: h.name, day, start: block.start, end: block.end, allDay: false });
+        continue;
+      }
       const target = targetAt(h, day);
       if (!target || target.period !== 'day') continue;
       if (h.scheduleDays.length && !h.scheduleDays.includes(weekdayOf(day))) continue;

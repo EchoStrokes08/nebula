@@ -1,6 +1,7 @@
 import { dueTaskSlots } from '@/domain/calendar/dueTasks';
 import { availabilitySlots, habitSlots, type AvailabilitySlot } from '@/domain/calendar/habitSlots';
 import { useHabitsData } from '@/features/habits/hooks';
+import { useHabitPlans } from './habitPlanStore';
 import { expandEvents, localMinutes } from '@/domain/calendar/expand';
 import { findConflicts } from '@/domain/planning/intervals';
 import { useTasks } from '@/features/tasks/hooks';
@@ -38,6 +39,7 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
   const focus = useFocusSessions();
   const { habits } = useHabitsData();
   const availability = useAvailability();
+  const plannedHabits = useHabitPlans((s) => s.plans);
   const items: AgendaItem[] = [];
 
   const pushSpan = (base: Omit<AgendaItem, 'day' | 'start' | 'end' | 'conflict'>, start: Date, end: Date) => {
@@ -69,8 +71,8 @@ export function useAgendaItems(from: DayKey, to: DayKey) {
     pushSpan({ key: `f-${f.id}`, kind: 'focus', refId: f.id, title: 'Sesión de enfoque', allDay: false }, new Date(f.startedAt), new Date(f.endedAt));
   }
 
-  // Hábitos diarios: a su hora de recordatorio o como «todo el día».
-  for (const h of habitSlots(habits.data ?? [], from, to)) {
+  // Hábitos diarios: a su hora de recordatorio o como «todo el día»; o donde los colocó Planificar.
+  for (const h of habitSlots(habits.data ?? [], from, to, plannedHabits)) {
     items.push({ key: `h-${h.id}-${h.day}`, kind: 'habit', refId: h.id, title: h.name, day: h.day, start: h.start, end: h.end, allDay: h.allDay, conflict: false });
   }
 

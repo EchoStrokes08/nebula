@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { AlertTriangle, ArrowLeft, Check, Settings2 } from 'lucide-react-native';
-import { useState } from 'react';
+import { AlertTriangle, ArrowLeft, Check, Flame, Settings2 } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,10 +11,14 @@ import { Button } from '@/components/primitives/Button';
 import { Text } from '@/components/primitives/Text';
 import { colors, radius, spacing } from '@/design/tokens';
 import { atLocal, localMinutes } from '@/domain/calendar/expand';
+import { habitsForPlan, isHabitPlanId, type HabitPlanItem } from '@/domain/planning/habitPlan';
 import { planDay, type PlanTask } from '@/domain/planning/scheduler';
 import { overload, viableDay, type ViableMode } from '@/domain/planning/viableDay';
 import { useAgendaMutation, useAvailability } from '@/features/agenda/hooks';
+import { useHabitPlans } from '@/features/agenda/habitPlanStore';
 import { useAgendaItems } from '@/features/agenda/useAgendaItems';
+import { useHabitsData } from '@/features/habits/hooks';
+import { useMyProfile } from '@/features/profile/useMyProfile';
 import { useTimeZone, useToday } from '@/features/habits/useToday';
 import { usePreferences } from '@/features/profile/usePreferences';
 import { updateTask } from '@/features/tasks/api';
@@ -36,7 +40,11 @@ const DEFAULT_WINDOWS = [
 export default function Planificar() {
   const params = useLocalSearchParams<{ dia?: string; desde?: string }>();
   const today = useToday();
-  const day = (params.dia && isDayKey(params.dia) ? params.dia : today) as DayKey;
+  const tomorrow = addDays(today, 1);
+  const asked = (params.dia && isDayKey(params.dia) ? params.dia : today) as DayKey;
+  const [day, setDay] = useState<DayKey>(asked);
+  // Hoy y mañana siempre; si se llegó desde la agenda con otro día, también ese.
+  const dayOptions = [...new Set<DayKey>([today, tomorrow, ...(asked >= today ? [asked] : [])])];
   const tz = useTimeZone();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -47,6 +55,21 @@ export default function Planificar() {
   const toast = useToast((t) => t.show);
   const [mode, setMode] = useState<ViableMode>('completo');
   const [deferIds, setDeferIds] = useState<string[]>([]);
+  const [withHabits, setWithHabits] = useState(true);
+  const { habits, logs } = useHabitsData();
+  const weekStartsOn = useMyProfile().data?.week_starts_on ?? 1;
+  const habitPlans = useHabitPlans((s) => s.plans);
+  const saveHabitPlan = useHabitPlans((s) => s.setDay);
+  const habitItems = useMemo<HabitPlanItem[]>(() => {
+    if (!habits.data || !logs.data) return [];
+    const byHabit = new Map<string, { dayKey: DayKey; value: number }[]>();
+    for (const l of logs.data) byHabit.set(l.habitId, [...(byHabit.get(l.habitId) ?? []), l]);
+    return habitsForPlan(habits.data, (id) => byHabit.get(id) ?? [], day, today, weekStartsOn);
+  }, [habits.data, logs.data, day, today, weekStartsOn]);
+  // Con hora propia o ya colocados antes en este día: ocupan su hueco y no se recolocan.
+  const alreadyPlanned = habitPlans[day] ?? {};
+  const fixedHabits = withHabits ? habitItems.filter((h) => h.fixedAt !== null || alreadyPlanned[h.habitId]) : [];
+  const movableHabits = withHabits ? habitItems.filter((h) => h.fixedAt === null && !alreadyPlanned[h.habitId]) : [];
   const apply = useAgendaMutation(async (v: { place: { id: string; start: number; end: number }[]; defer: string[] }) => {
     for (const p of v.place) await updateTask(p.id, { scheduledStart: atLocal(day, p.start, tz).toISOString(), scheduledEnd: atLocal(day, p.end, tz).toISOString() });
     for (const id of v.defer) {
@@ -62,18 +85,37 @@ export default function Planificar() {
   const available = usingDefault ? DEFAULT_WINDOWS : windows;
   const busy = items.filter((i) => !i.allDay && i.kind !== 'focus').map((i) => ({ start: i.start, end: i.end }));
   const all = tasks.data ?? [];
-  const candidates: PlanTask[] = toPlanTasks(all, day, (t) => !t.scheduledStart && (!t.dueDate || diffDays(day, t.dueDate) <= 7));
+  const candidates: PlanTask[] = [
+    ...toPlanTasks(all, day, (t) => !t.scheduledStart && (!t.dueDate || diffDays(day, t.dueDate) <= 7)),
+    ...movableHabits.map((h) => h.task),
+  ];
+  const habitOf = (id: string) => habitItems.find((h) => h.id === id);
   const preferred = (prefs.data?.focusWindows ?? []).map((w) => ({ start: minutesOf(w.start), end: minutesOf(w.end) }));
   // `desde` (HH:MM): el asistente pide reorganizar a partir de una hora («reorganiza mi tarde»).
-  const from = params.desde && /^\d{2}:\d{2}$/.test(params.desde) ? minutesOf(params.desde) : 0;
+  const from = params.desde && day === asked && /^\d{2}:\d{2}$/.test(params.desde) ? minutesOf(params.desde) : 0;
   const notBefore = day === today ? Math.ceil(Math.max(localMinutes(new Date(), tz), from) / 5) * 5 : from || undefined;
   const capacity = planDay([], available, busy, { notBefore }).availableMinutes;
   const viable = viableDay(candidates, capacity, mode);
   const plan = planDay(candidates.filter((c) => viable.keep.includes(c.id)), available, busy, { notBefore, preferred, minChunk: Number.POSITIVE_INFINITY });
   const load = overload(candidates.reduce((a, c) => a + c.minutes, 0), capacity);
-  const title = (id: string) => all.find((t) => t.id === id)?.title ?? '';
-  const defaulted = (id: string) => !all.find((t) => t.id === id)?.estimateMinutes;
-  const notPlaced = [...plan.unplaced.map((u) => u.taskId), ...viable.defer];
+  const title = (id: string) => habitOf(id)?.title ?? all.find((t) => t.id === id)?.title ?? '';
+  const defaulted = (id: string) => !isHabitPlanId(id) && !all.find((t) => t.id === id)?.estimateMinutes;
+  const notPlacedAll = [...plan.unplaced.map((u) => u.taskId), ...viable.defer];
+  const notPlaced = notPlacedAll.filter((id) => !isHabitPlanId(id));
+  const habitsLeftOut = notPlacedAll.filter(isHabitPlanId);
+  const placedTasks = plan.placed.filter((p) => !isHabitPlanId(p.taskId));
+  const placedHabits = plan.placed.filter((p) => isHabitPlanId(p.taskId));
+  // Línea del día: lo propuesto más los hábitos que ya tienen su hora (atenuados).
+  const timeline = [
+    ...plan.placed.map((p) => ({ key: p.taskId, start: p.start, end: p.end, fixed: false })),
+    ...fixedHabits.map((h) => {
+      const b = alreadyPlanned[h.habitId];
+      const start = b ? b.start : h.fixedAt!;
+      return { key: h.id, start, end: b ? b.end : start + h.minutes, fixed: true };
+    }),
+  ].sort((a, b) => a.start - b.start);
+  const nextDayWord = day === today ? 'mañana' : 'al día siguiente';
+  const changeDay = (d: DayKey) => { setDay(d); setDeferIds([]); };
 
   return (
     <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing[4], paddingBottom: insets.bottom + spacing[12] }, width >= 900 && styles.wide]}>
@@ -85,6 +127,12 @@ export default function Planificar() {
         <Text variant="overline" tone="accent">PLANIFICAR · {formatDay(day, today).toUpperCase()}</Text>
         <Text variant="title1" accessibilityRole="header">Día viable</Text>
         <Text tone="secondary">Nebula propone; tú decides. No se mueve ni se elimina nada sin tu confirmación.</Text>
+      </View>
+
+      <View style={styles.wrap} accessibilityRole="radiogroup" accessibilityLabel="Día a planificar">
+        {dayOptions.map((d) => <Chip key={d} role="radio" label={formatDay(d, today)} selected={day === d} onToggle={() => changeDay(d)} />)}
+        <View style={styles.sep} />
+        <Chip label="Incluir hábitos" selected={withHabits} onToggle={() => setWithHabits((x) => !x)} />
       </View>
 
       {usingDefault ? (
@@ -108,17 +156,27 @@ export default function Planificar() {
 
       <View style={styles.card}>
         <Text variant="title3">Propuesta</Text>
-        {candidates.length === 0 ? <Text tone="secondary">No hay tareas pendientes sin programar para estos días.</Text> : null}
+        {candidates.length === 0 && fixedHabits.length === 0 ? <Text tone="secondary">No hay tareas ni hábitos pendientes sin programar para {day === today ? 'hoy' : 'ese día'}.</Text> : null}
         {plan.placed.length === 0 && candidates.length > 0 ? <Text tone="secondary">No hay huecos suficientes con los compromisos actuales.</Text> : null}
-        {plan.placed.map((p) => (
-          <View key={p.taskId} style={styles.slot}>
-            <Text variant="bodyStrong" tabular style={styles.time}>{hhmm(p.start)}–{hhmm(p.end)}</Text>
-            <View style={styles.flex}>
-              <Text variant="bodyStrong">{title(p.taskId)}</Text>
-              <Text variant="caption" tone="tertiary">{plan.reasons[p.taskId]}{defaulted(p.taskId) ? ` · ${DEFAULT_ESTIMATE} min estimados por defecto` : ''}</Text>
+        {timeline.map((p) => {
+          const habit = habitOf(p.key);
+          return (
+            <View key={p.key} style={[styles.slot, p.fixed && styles.fixed]}>
+              <Text variant="bodyStrong" tabular style={styles.time}>{hhmm(p.start)}–{hhmm(p.end)}</Text>
+              <View style={styles.flex}>
+                <View style={styles.line}>
+                  {habit ? <Flame size={14} color={colors.warning} accessibilityLabel="Hábito" /> : null}
+                  <Text variant="bodyStrong" style={styles.flex}>{title(p.key)}</Text>
+                </View>
+                <Text variant="caption" tone="tertiary">
+                  {habit
+                    ? `${habit.why}${p.fixed ? (alreadyPlanned[habit.habitId] ? ' · ya planificado' : ' · a su hora de siempre') : ''}`
+                    : `${plan.reasons[p.key]}${defaulted(p.key) ? ` · ${DEFAULT_ESTIMATE} min estimados por defecto` : ''}`}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
         {plan.placed.length ? (
           <Text variant="caption" tone="tertiary">{formatDuration(plan.placed.reduce((a, p) => a + p.end - p.start, 0))} planificados de {formatDuration(capacity)} libres, con descansos de 10 min.</Text>
         ) : null}
@@ -127,7 +185,7 @@ export default function Planificar() {
       {notPlaced.length ? (
         <View style={styles.card}>
           <Text variant="title3">Fuera de este plan</Text>
-          <Text variant="callout" tone="secondary">Marca las que quieras pasar a mañana. Las demás se quedan como están.</Text>
+          <Text variant="callout" tone="secondary">Marca las que quieras pasar a {nextDayWord}. Las demás se quedan como están.</Text>
           {notPlaced.map((id) => {
             const selected = deferIds.includes(id);
             const reason = plan.unplaced.find((u) => u.taskId === id)?.reason;
@@ -136,11 +194,27 @@ export default function Planificar() {
                 <View style={[styles.box, selected && styles.boxOn]}>{selected ? <Check size={12} color={colors.textOnAccent} strokeWidth={3} /> : null}</View>
                 <View style={styles.flex}>
                   <Text>{title(id)}</Text>
-                  <Text variant="caption" tone="tertiary">{reason === 'bloqueada' ? 'Depende de tareas sin terminar' : reason === 'sin_hueco' ? 'No cabe en los huecos libres' : 'No es esencial hoy'}</Text>
+                  <Text variant="caption" tone="tertiary">{reason === 'bloqueada' ? 'Depende de tareas sin terminar' : reason === 'sin_hueco' ? 'No cabe en los huecos libres' : `No es esencial ${day === today ? 'hoy' : 'ese día'}`}</Text>
                 </View>
               </Pressable>
             );
           })}
+        </View>
+      ) : null}
+
+      {habitsLeftOut.length ? (
+        <View style={styles.card}>
+          <Text variant="title3">Hábitos sin hueco</Text>
+          <Text variant="callout" tone="secondary">No caben en este plan, pero siguen contando {day === today ? 'hoy' : 'ese día'}: hazlos cuando puedas.</Text>
+          {habitsLeftOut.map((id) => (
+            <View key={id} style={styles.slot}>
+              <Flame size={16} color={colors.warning} />
+              <View style={styles.flex}>
+                <Text>{title(id)}</Text>
+                <Text variant="caption" tone="tertiary">{habitOf(id)?.why} · {habitOf(id)?.minutes} min</Text>
+              </View>
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -150,8 +224,14 @@ export default function Planificar() {
         loading={apply.isPending}
         onPress={() =>
           apply.mutate(
-            { place: plan.placed.map((p) => ({ id: p.taskId, start: p.start, end: p.end })), defer: deferIds },
-            { onSuccess: () => { toast('Plan aplicado'); back(); }, onError: () => toast('No se pudo aplicar el plan. Revisa la conexión.') },
+            { place: placedTasks.map((p) => ({ id: p.taskId, start: p.start, end: p.end })), defer: deferIds },
+            {
+              onSuccess: () => {
+                // Los hábitos no cambian su hora de siempre: solo se colocan ese día en la agenda.
+                if (placedHabits.length) saveHabitPlan(day, Object.fromEntries(placedHabits.map((p) => [habitOf(p.taskId)!.habitId, { start: p.start, end: p.end }])), today);
+                toast(day === today ? 'Plan de hoy aplicado' : `Plan de ${formatDay(day, today).toLowerCase()} aplicado`);
+                back();
+              }, onError: () => toast('No se pudo aplicar el plan. Revisa la conexión.') },
           )
         }
         fullWidth
@@ -170,6 +250,8 @@ const styles = StyleSheet.create({
   card: { gap: spacing[3], padding: spacing[5], borderRadius: radius.lg, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
   warn: { borderColor: colors.warning, backgroundColor: colors.warningMuted },
   line: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  sep: { width: 1, alignSelf: 'stretch', marginHorizontal: spacing[1], backgroundColor: colors.border },
+  fixed: { opacity: 0.6 },
   slot: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
   time: { width: 104 },
   box: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
