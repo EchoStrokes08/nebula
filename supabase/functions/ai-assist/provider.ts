@@ -40,7 +40,11 @@ export const instructions = (schema: unknown) => [
 /** Quita vallas ```json y descarta recursos con URL inválida en vez de rechazar todo el plan. */
 export function cleanOutput(raw: string): unknown {
   const text = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const data = JSON.parse(text) as { actions?: unknown };
+  let data = JSON.parse(text) as { message?: unknown; actions?: unknown };
+  // Algunos modelos devuelven solo la lista de acciones: se envuelve en el formato esperado.
+  if (Array.isArray(data) && data.length && data.every((a) => a && typeof a === 'object' && typeof (a as { type?: unknown }).type === 'string')) {
+    data = { message: 'Te propongo este plan. Revísalo antes de guardarlo.', actions: data };
+  }
   if (Array.isArray(data.actions)) {
     const keep = (list: unknown) => (Array.isArray(list) ? list.filter((r) => resourceSchema.safeParse(r).success) : list);
     for (const a of data.actions as Record<string, unknown>[]) {
@@ -82,6 +86,54 @@ export function planScore(result: unknown): number {
 /** Detecta peticiones habituales en el chat para investigar antes de generar. */
 export const looksLikeGoalPlan = (message: string) =>
   /\b(plan|cronograma|itinerario|hoja de ruta)\s+(para|de|detallado|paso a paso)\b|\b(haz|crea|diseña|prepara|dame|arma|necesito|quiero|prop[oó]n)\w*\s+(?:\w+\s+){0,2}(?:plan|cronograma|itinerario)\b|\b(quiero|quisiera|me gustar[ií]a|mi meta es)\s+(aprender|dominar|lograr|conseguir|prepararme|alcanzar)\b/i.test(message);
+
+/**
+ * Completa en sitio los huecos menores de las tareas antes de validar. Antes, una sola tarea sin
+ * duración o sin criterio de terminado hacía descartar el plan entero; los modelos de respaldo casi
+ * siempre dejan alguno y nunca se aceptaba ninguno. Solo se rellenan campos derivables del propio
+ * plan (duración por defecto, criterio y práctica a partir del título, pasos mínimos, referencias a
+ * hitos o dependencias que no existen).
+ *
+ * El detalle de un plan son sus pasos: solo se completan si faltan en pocas tareas
+ * (≤ CONTENT_REPAIR_SHARE). Un plan sin pasos en casi todas sigue siendo insuficiente y se pide a
+ * otro modelo. La práctica y el criterio de terminado se derivan del título siempre (los modelos
+ * de respaldo suelen omitir solo el criterio), igual que los arreglos mecánicos.
+ */
+export const CONTENT_REPAIR_SHARE = 0.25;
+const lacksSteps = (task: PlanAction['tasks'][number]) => new Set(task.steps.map((s) => s.toLowerCase())).size < 2;
+
+export function repairPlan(plan: PlanAction): { touched: number; content: number; fields: string[] } {
+  let touched = 0;
+  const missing = plan.tasks.filter(lacksSteps).length;
+  const fillSteps = missing <= Math.floor(plan.tasks.length * CONTENT_REPAIR_SHARE);
+  const fields = new Set<string>();
+  const lastMilestone = plan.milestones.length - 1;
+  plan.tasks.forEach((task, i) => {
+    const before = JSON.stringify(task);
+    if (!task.minutes) { task.minutes = 30; fields.add('duración'); }
+    if (task.minutes > 120) { task.minutes = 120; fields.add('duración'); }
+    if (lastMilestone >= 0 && (task.milestone === null || task.milestone > lastMilestone)) { task.milestone = Math.min(lastMilestone, Math.max(0, task.milestone ?? lastMilestone)); fields.add('hito'); }
+    const after = task.after.filter((index) => index < i);
+    if (after.length !== task.after.length) { task.after = after; fields.add('dependencias'); }
+    const name = task.title.replace(/[.\s]+$/, '');
+    // Sin pasos, el plan no tiene detalle: no se inventa el resto (lo rechazará la validación).
+    if (!lacksSteps(task) || fillSteps) {
+      if (!task.study?.trim()) { task.study = name; fields.add('práctica'); }
+      if (!task.done?.trim()) { task.done = `Has completado «${name}» y puedes explicar lo que hiciste.`; fields.add('criterio'); }
+    }
+    if (fillSteps) {
+      const steps = [...new Map(task.steps.map((s) => [s.toLowerCase(), s])).values()];
+      if (steps.length < 2) {
+        const fill = [`Prepara lo necesario para «${name}»`, `Hazlo en un bloque de ${task.minutes} min y anota lo que aprendiste`];
+        for (const s of fill) if (steps.length < 2 && !steps.some((x) => x.toLowerCase() === s.toLowerCase())) steps.push(s);
+        fields.add('pasos');
+      }
+      task.steps = steps;
+    }
+    if (JSON.stringify(task) !== before) touched += 1;
+  });
+  return { touched, content: fillSteps ? missing : 0, fields: [...fields] };
+}
 
 export function qualityShortfall(plan: PlanAction, revision: boolean, researched: boolean): string | null {
   // Las metas pequeñas y las que ya están avanzadas pueden necesitar una sola fase de trabajo.
@@ -339,6 +391,8 @@ export function createProvider(env: (key: string) => string | undefined, send: t
             }
             keepResearchResources(plan, catalog);
             plan.adjustments = [];
+            const repaired = repairPlan(plan);
+            if (repaired.touched) console.log(JSON.stringify({ ai: 'repaired', model: c.spec.id, ...repaired }));
           }
         }
         let short = options.groundPlans
