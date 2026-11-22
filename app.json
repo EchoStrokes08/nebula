@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nebula",
     "slug": "nebula",
-    "version": "1.4.0",
+    "version": "1.4.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -15,7 +15,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "app.nebula.productividad",
-      "versionCode": 23,
+      "versionCode": 24,
       "permissions": [
         "android.permission.REQUEST_INSTALL_PACKAGES"
       ]
