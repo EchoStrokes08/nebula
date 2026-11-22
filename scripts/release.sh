@@ -43,6 +43,10 @@ echo "version $VERSION · versionCode $CODE"
 LOGS=$(mktemp -d)
 JOBS=()
 bg() { local name=$1; shift; "$@" >"$LOGS/$name.log" 2>&1 & JOBS+=("$name:$!"); }
+# Si algo falla, detiene también lo que sigue en segundo plano (Gradle incluido) para no dejarlo a medias.
+kill_tree() { local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done; kill "$1" 2>/dev/null || true; }
+stop_jobs() { local job; for job in "${JOBS[@]}"; do kill_tree "${job##*:}"; done; }
+trap 'status=$?; [ "$status" = 0 ] || stop_jobs' EXIT
 build_apk() {
   set -euo pipefail
   export JAVA_HOME="${JAVA_HOME:-$HOME/Android/jdk}"
