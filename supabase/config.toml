@@ -16,6 +16,10 @@ import_map = "./functions/deno.json"
 verify_jwt = false
 import_map = "./functions/deno.json"
 
+[functions.gmail-triage]
+verify_jwt = false
+import_map = "./functions/deno.json"
+
 [functions.push-dispatch]
 verify_jwt = false
 import_map = "./functions/deno.json"

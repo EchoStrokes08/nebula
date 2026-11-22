@@ -127,6 +127,7 @@ export default function RootLayout() {
                   <Stack.Screen name="diario" />
                   <Stack.Screen name="constelacion" />
                   <Stack.Screen name="integraciones" />
+                  <Stack.Screen name="correo" />
                   <Stack.Screen name="notificaciones" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="motivacion" options={{ animation: reducedMotion ? 'none' : 'slide_from_right' }} />
                   <Stack.Screen name="google-calendar" options={{ animation: 'none' }} />
