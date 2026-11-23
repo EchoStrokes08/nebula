@@ -65,3 +65,30 @@ it('borrar la tarea deja la sugerencia sin enlace', async () => {
   const { rows } = await db.query<{ task_id: string | null }>(`select task_id from public.mail_triage where message_id = 'a3'`);
   expect(rows[0]!.task_id).toBeNull();
 });
+
+describe('Outlook', () => {
+  it('el permiso y los estados de conexión solo los toca el servidor', async () => {
+    await db.query(`insert into public.outlook_tokens (user_id, refresh_token) values ($1, 'M.C509_BAY.0.U.-refresh')`, [ana]);
+    await db.query(`insert into public.mail_oauth_states (state, user_id, target) values ($1, $2, 'a')`, ['s'.repeat(40), ana]);
+    await asUser(db, ana, async (tx) => {
+      await expectFailure(tx, 'select refresh_token from public.outlook_tokens', [], /permission denied/);
+    });
+    await asUser(db, ana, async (tx) => {
+      await expectFailure(tx, 'select state from public.mail_oauth_states', [], /permission denied/);
+    });
+  });
+
+  it('el mismo id puede existir en Gmail y en Outlook; ids largos de Outlook', async () => {
+    const long = 'AQMkADAwATM0MDAAMS1iNTcwLWI2NTEtMDACLTAwCgBGAAADvL+Yu/8Ihk2h0ptWqU2c2wcA==';
+    await db.query(`insert into public.mail_triage (user_id, provider, message_id, thread_id, sender, subject, received_at, kind, web_link)
+                    values ($1, 'outlook', 'a1', 'a1', 'x', 'y', now(), 'info', 'https://outlook.live.com/owa/?ItemID=1'),
+                           ($1, 'outlook', $2, $2, 'x', 'y', now(), 'todo', null)`, [ana, long]);
+    const { rows } = await db.query<{ n: number }>(`select count(*)::int as n from public.mail_triage where user_id = $1 and message_id = 'a1'`, [ana]);
+    expect(rows[0]!.n).toBe(2);
+  });
+
+  it('solo guarda enlaces de Outlook', async () => {
+    await expect(db.query(`insert into public.mail_triage (user_id, provider, message_id, thread_id, sender, subject, received_at, kind, web_link)
+                           values ($1, 'outlook', 'z9', 'z9', 'x', 'y', now(), 'info', 'https://evil.example.com/outlook.live.com/')`, [ana])).rejects.toThrow(/check/);
+  });
+});

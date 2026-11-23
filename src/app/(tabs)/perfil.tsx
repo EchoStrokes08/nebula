@@ -51,7 +51,7 @@ export default function PerfilScreen() {
             <MenuItem icon={StickyNote} label="Nota rápida" hint="Apunta algo antes de que se te olvide" href="/captura" />
             <MenuItem icon={Users} label="Enfoque con amigos" hint="Salas para concentrarse juntos" href="/salas" />
             <MenuItem icon={CalendarClock} label="Disponibilidad" hint="Cuándo puede planificar Nebula" href="/disponibilidad" />
-            <MenuItem icon={Mail} label="Correo" hint="Qué tienes pendiente en Gmail" href="/correo" />
+            <MenuItem icon={Mail} label="Correo" hint="Qué tienes pendiente en Gmail y Outlook" href="/correo" />
             <MenuItem icon={CalendarSync} label="Integraciones" hint="Google Calendar y otros calendarios" href="/integraciones" />
           </Section>
           <Section title="CUENTA">

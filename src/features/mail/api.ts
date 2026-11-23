@@ -1,16 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Linking from 'expo-linking';
+import { Platform } from 'react-native';
 
 import { db, unwrap } from '@/data/db';
 import { supabase } from '@/data/supabase';
-import { GMAIL_SCOPE, mailErrorMessage, type MailKind } from '@/domain/mail/triage';
+import { GMAIL_SCOPE, mailErrorMessage, type MailKind, type MailProvider } from '@/domain/mail/triage';
 import { exchangeCode } from '@/features/auth/api';
 import { parseCallbackUrl } from '@/features/auth/oauth';
 import { createTask } from '@/features/tasks/api';
 import type { DayKey } from '@/lib/dates';
+import { getDesktopBridge } from '@/platform/desktopBridge';
 import { oauth } from '@/platform/oauth';
 
 /**
- * Gmail → Nebula (solo lectura). El permiso se pide con el inicio de sesión de Google de Supabase
+ * Gmail y Outlook → Nebula (solo lectura).
+ *
+ * Gmail: El permiso se pide con el inicio de sesión de Google de Supabase
  * (como el flujo de Google Calendar sin cliente propio) y el permiso renovable queda en el servidor:
  * la función gmail-triage lee el correo, lo clasifica con la IA y guarda las sugerencias en
  * mail_triage. La app solo lee esas sugerencias y decide qué hacer con cada una.
@@ -21,9 +26,11 @@ export class MailError extends Error {
   constructor(readonly code: string | undefined) { super(mailErrorMessage(code)); }
 }
 
-/** Llama a gmail-triage y convierte sus errores en mensajes comprensibles. */
-async function call<T>(payload: Record<string, unknown>): Promise<T> {
-  const { data, error } = await db().functions.invoke<T>('gmail-triage', { body: payload });
+const FUNCTION: Record<MailProvider, string> = { gmail: 'gmail-triage', outlook: 'outlook-mail' };
+
+/** Llama a la función del proveedor y convierte sus errores en mensajes comprensibles. */
+async function callProvider<T>(provider: MailProvider, payload: Record<string, unknown>): Promise<T> {
+  const { data, error } = await db().functions.invoke<T>(FUNCTION[provider], { body: payload });
   if (error) {
     const response = (error as { context?: { json?: () => Promise<unknown> } }).context;
     const body = typeof response?.json === 'function' ? await response.json().catch(() => null) as { error?: unknown } | null : null;
@@ -32,8 +39,10 @@ async function call<T>(payload: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
-export async function gmailConnected(): Promise<boolean> {
-  return (await call<{ connected: boolean }>({ action: 'status' })).connected;
+const call = <T>(payload: Record<string, unknown>) => callProvider<T>('gmail', payload);
+
+export async function mailConnected(provider: MailProvider): Promise<boolean> {
+  return (await callProvider<{ connected: boolean }>(provider, { action: 'status' })).connected;
 }
 
 export type GmailConnectOutcome = 'connected' | 'redirecting' | 'cancelled';
@@ -91,21 +100,48 @@ async function finishConnect(before: { user: { id: string }; access_token: strin
   await call({ action: 'store', refresh_token: refreshToken });
 }
 
-export async function disconnectGmail() {
-  await call({ action: 'forget' });
+export async function disconnectMail(provider: MailProvider) {
+  await callProvider(provider, { action: 'forget' });
+}
+
+/**
+ * Outlook: Microsoft vuelve a la función outlook-mail (no al inicio de sesión de Supabase), que
+ * guarda el permiso para quien empezó la conexión y devuelve el control a la app con ?outlook=…
+ * Así la cuenta de Outlook puede ser distinta de la de Nebula.
+ */
+export async function connectOutlook(): Promise<GmailConnectOutcome> {
+  const target = Platform.OS !== 'web' ? 'a' : getDesktopBridge() ? 'd' : 'w';
+  // Escritorio: prepareRedirect levanta el servidor de retorno en 127.0.0.1.
+  const returnUrl = target === 'a' ? Linking.createURL('correo') : await oauth.prepareRedirect();
+  const { url } = await callProvider<{ url: string }>('outlook', { action: 'start', target });
+  if (!url.startsWith('https://login.microsoftonline.com/')) throw new MailError(undefined);
+  const result = await oauth.open(url, returnUrl);
+  if (result.type === 'redirect') return 'redirecting';
+  if (result.type === 'cancel') return 'cancelled';
+  return outlookReturn(result.url);
+}
+
+/** Resultado que trae la vuelta de Outlook (?outlook=ok|cancelled|rejected|error). */
+export function outlookReturn(url: string): GmailConnectOutcome {
+  const q = url.includes('?') ? new URLSearchParams(url.slice(url.indexOf('?') + 1).split('#')[0]) : new URLSearchParams();
+  const r = q.get('outlook');
+  if (r === 'ok') return 'connected';
+  if (r === 'cancelled') return 'cancelled';
+  throw new MailError(r === 'rejected' ? 'outlook_rejected' : undefined);
 }
 
 const localDay = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 /** Revisa el correo nuevo. `pending`: correos que quedaron para la siguiente revisión. */
-export async function triageMail(): Promise<{ added: number; pending: number }> {
-  return call({ action: 'triage', today: localDay() });
+export async function triageMail(provider: MailProvider): Promise<{ added: number; pending: number }> {
+  return callProvider(provider, { action: 'triage', today: localDay() });
 }
 
 export type MailStatus = 'new' | 'task' | 'done' | 'dismissed';
 
 export interface MailSuggestion {
+  provider: MailProvider;
   messageId: string;
   threadId: string;
   sender: string;
@@ -118,13 +154,15 @@ export interface MailSuggestion {
   reason: string | null;
   status: MailStatus;
   taskId: string | null;
+  webLink: string | null;
 }
 
 export async function fetchMailSuggestions(): Promise<MailSuggestion[]> {
   const rows = unwrap(await db().from('mail_triage')
-    .select('message_id, thread_id, sender, subject, received_at, kind, title, due_date, priority, reason, status, task_id')
+    .select('provider, message_id, thread_id, sender, subject, received_at, kind, title, due_date, priority, reason, status, task_id, web_link')
     .order('received_at', { ascending: false }).limit(200)) as Record<string, unknown>[];
   return rows.map((r) => ({
+    provider: r.provider as MailProvider,
     messageId: r.message_id as string,
     threadId: r.thread_id as string,
     sender: r.sender as string,
@@ -137,11 +175,12 @@ export async function fetchMailSuggestions(): Promise<MailSuggestion[]> {
     reason: (r.reason as string) ?? null,
     status: r.status as MailStatus,
     taskId: (r.task_id as string) ?? null,
+    webLink: (r.web_link as string) ?? null,
   }));
 }
 
-export async function setMailStatus(messageId: string, status: MailStatus, taskId: string | null = null) {
-  unwrap(await db().from('mail_triage').update({ status, task_id: taskId }).eq('message_id', messageId));
+export async function setMailStatus(s: Pick<MailSuggestion, 'provider' | 'messageId'>, status: MailStatus, taskId: string | null = null) {
+  unwrap(await db().from('mail_triage').update({ status, task_id: taskId }).eq('provider', s.provider).eq('message_id', s.messageId));
 }
 
 /** Convierte la sugerencia en una tarea de Nebula (con remitente y asunto en las notas). */
@@ -152,6 +191,6 @@ export async function suggestionToTask(s: MailSuggestion): Promise<string> {
     priority: s.priority,
     dueDate: s.dueDate,
   });
-  await setMailStatus(s.messageId, 'task', id);
+  await setMailStatus(s, 'task', id);
   return id;
 }
