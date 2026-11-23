@@ -1,0 +1,7 @@
+{
+  "version": "1.6.0",
+  "notes": "Nuevo: Outlook en Correo. Conecta tu Outlook, Hotmail o correo de la institución además de Gmail y Nebula te dice qué tienes pendiente en los dos.",
+  "apk": "https://echostrokes08.github.io/nebula/nebula.apk",
+  "windows": "https://echostrokes08.github.io/nebula/Nebula-Setup.exe",
+  "linux": "https://github.com/EchoStrokes08/nebula/releases/latest/download/Nebula-linux-x86_64.AppImage"
+}
